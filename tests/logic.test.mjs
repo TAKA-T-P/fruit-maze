@@ -302,3 +302,22 @@ test('ステージ番号：各難易度の問題は ID 順に並び、ステー�
     list.forEach((p, i) => assert.equal(p.id, `${prefix[level]}-${String(i + 1).padStart(3, '0')}`, `★${level} ステージ${i + 1}`));
   }
 });
+
+import { Stopwatch } from '../js/timer.js';
+
+test('タイマー：一時停止している間（設定画面など）は時間が進まない', () => {
+  let t = 0;
+  const sw = new Stopwatch(() => t);
+  sw.start();
+  t = 5000;
+  sw.pause();
+  assert.equal(sw.paused, true);
+  t = 65000;                     // 止めている 60 秒
+  assert.equal(sw.elapsed(), 5000);
+  sw.resume();
+  t = 70000;
+  assert.equal(sw.elapsed(), 10000);
+  sw.pause(); t = 90000; sw.stop(); // 一時停止中にクリアしても、止めていた時間は数えない
+  assert.equal(sw.elapsed(), 10000);
+  assert.equal(sw.running, false);
+});

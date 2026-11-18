@@ -4,11 +4,13 @@ export const SETTINGS_KEY = 'fruitMaze.settings.v1';
 export const DEFAULT_SETTINGS = Object.freeze({
   sound: true,          // 効果音 ON/OFF
   clueStyle: 'target',  // 行・列の数字：'target'＝「3」／'fraction'＝「1/3」
+  buttons: 'cycle',     // 操作ボタン：'cycle'＝1つのボタンで切り替え／'five'＝「ルート」「○」「×」「消す」「💡」の5ボタン
 });
 
 const VALID = {
   sound: (v) => typeof v === 'boolean',
   clueStyle: (v) => v === 'target' || v === 'fraction',
+  buttons: (v) => v === 'cycle' || v === 'five',
 };
 
 /** @param {Storage|null} backend localStorage 互換（テスト時は差し替え可能） */

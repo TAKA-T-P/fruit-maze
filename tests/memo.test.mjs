@@ -188,3 +188,12 @@ test('設定：既定は 効果音ON・数字「3」表示。変更は保存さ�
   assert.deepEqual(createSettings(b).all(), { ...DEFAULT_SETTINGS }, '壊れた保存データは既定値に');
   assert.deepEqual(createSettings(null).all(), { ...DEFAULT_SETTINGS }, '保存できない環境でも動く');
 });
+
+test('設定：ボタン表示（きりかえ／5ボタン）を保存できる', () => {
+  const b = mem();
+  const s = createSettings(b);
+  assert.equal(s.get('buttons'), 'cycle');
+  assert.equal(s.set('buttons', 'five'), true);
+  assert.equal(s.set('buttons', 'six'), false);
+  assert.equal(createSettings(b).get('buttons'), 'five');
+});

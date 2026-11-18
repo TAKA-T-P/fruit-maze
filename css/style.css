@@ -96,7 +96,29 @@ button { font-family: inherit; touch-action: manipulation; }
 .bar-right { min-width: 44px; text-align: right; color: var(--ink-soft); font-weight: 700; }
 
 /* ===== タイトル ===== */
-#screen-title { justify-content: center; align-items: center; text-align: center; }
+#screen-title { justify-content: center; align-items: center; text-align: center; position: relative; }
+/* 右上の歯車（設定） */
+.title-settings {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 12px);
+  right: calc(env(safe-area-inset-right) + 14px);
+  z-index: 2;
+}
+/* タイトルは上下中央。表記はそのあと（画面のいちばん下）に置き、ボタンには重ならない */
+#screen-title.active { overflow-y: auto; }
+#screen-title .title-wrap { margin-block: auto; }
+/* いちばん下の表記（目立たないように小さく・うすく） */
+.copyright {
+  flex: none;
+  margin: 0;
+  padding: 4px 16px calc(env(safe-area-inset-bottom) + 8px);
+  font-size: .68rem;
+  font-weight: 500;
+  letter-spacing: .03em;
+  color: var(--ink-soft);
+  opacity: .55;
+  pointer-events: none;
+}
 .title-wrap { padding: 24px 16px; max-width: 520px; width: 100%; }
 .title-deco { font-family: var(--emoji); font-size: 2rem; letter-spacing: .4em; margin-bottom: 8px; }
 .title-deco span { display: inline-block; animation: bob 2.4s ease-in-out infinite; }
@@ -118,6 +140,16 @@ button { font-family: inherit; touch-action: manipulation; }
 .menu { display: flex; flex-direction: column; gap: 14px; align-items: center; }
 .menu .btn { width: min(280px, 100%); }
 .loading .menu { visibility: hidden; }
+/* 横向きで高さが低い画面：タイトルを小さめにして、ボタンを横にならべる */
+@media (max-height: 500px) and (orientation: landscape) {
+  .title-wrap { padding: 12px 16px 4px; max-width: 640px; }
+  .title-deco { font-size: 1.3rem; margin-bottom: 0; }
+  .title-deco span:nth-child(2) { font-size: 1.6rem; }
+  .title-logo { font-size: clamp(1.8rem, 6.5vh + 1rem, 2.6rem); }
+  .catch { margin: 6px 0 16px; }
+  .menu { flex-direction: row; justify-content: center; }
+  .menu .btn.big { min-height: 52px; padding: 10px 20px; font-size: 1.15rem; }
+}
 .load-error { margin-top: 24px; color: var(--goal); font-weight: 700; line-height: 1.6; }
 
 /* ===== 難易度選択 ===== */
@@ -228,9 +260,43 @@ button { font-family: inherit; touch-action: manipulation; }
 .howto-tools { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 0 0 10px; }
 .howto-tools .btn { min-height: 44px; padding: 8px 14px; font-size: .9rem; font-family: var(--font), var(--emoji); }
 .howto-hint { width: 100%; margin-bottom: 10px; }
+
+/* ② なぞる練習のガイド（うすい点線）。ルートの線の上・フルーツの下に描く */
+.route-guide { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; overflow: visible; }
+.route-guide polyline { fill: none; stroke: var(--fruit-color, var(--red)); stroke-opacity: .4; stroke-linecap: round; stroke-linejoin: round; }
+.route-guide circle { fill: var(--fruit-color, var(--red)); fill-opacity: .3; }
+
+/* ③ 通れない道のイラスト */
+.mini-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: 100%; max-width: 420px; margin: 0 auto; }
+.mini { margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; background: #fff; border: 2px solid var(--line-soft); border-radius: 14px; padding: 8px 4px 6px; }
+.mini-board { position: relative; }
+.mini-grid { display: grid; }
+.mini-cell {
+  width: 30px; height: 30px;
+  display: grid; place-items: center;
+  font-family: var(--emoji); font-size: 17px;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 2px var(--line-soft);
+  background: #fff;
+  position: relative;
+}
+.mini-cell.on { background: var(--fruit-light, #ffd9de); box-shadow: inset 0 0 0 2px var(--red); }
+.mini-cell.blank { background: var(--blank); box-shadow: inset 0 0 0 2px #eadbc4; }
+.mini-cell.x::after {
+  content: "";
+  position: absolute; inset: 3px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M2 2l6 6M8 2l-6 6' stroke='%23e03131' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.mini-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.mini-route { fill: none; stroke: var(--red); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; opacity: .85; }
+.mini-ng { stroke: #e03131; stroke-width: 3; stroke-dasharray: 5 4; stroke-linecap: round; }
+.mini-clues { display: grid; justify-items: center; margin-bottom: 2px; }
+.mini-clue { width: 24px; height: 24px; font-size: .85rem; border-radius: 50%; display: grid; place-items: center; background: #fff; border: 2px solid var(--line-soft); font-weight: 800; }
+.mini figcaption { font-size: .82rem; font-weight: 800; color: var(--ink); text-align: center; line-height: 1.4; }
 .chip-done, .chip-over { padding: 1px 8px; border-radius: 8px; color: #fff; }
 .chip-done { background: var(--green); }
 .chip-over { background: var(--goal); }
+.howto-nav .btn { white-space: nowrap; padding: 12px 16px; }
 .howto-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px 16px; max-width: 560px; width: 100%; margin: 0 auto; }
 .howto-dots { display: flex; gap: 6px; }
 .howto-dots .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line-soft); }
@@ -309,6 +375,21 @@ button { font-family: inherit; touch-action: manipulation; }
 .mode-cycle[data-mode="memo-off"] { background: #d6336c; box-shadow: 0 4px 0 #a61e4d; }
 .mode-cycle[data-mode="memo-erase"] { background: #868e96; box-shadow: 0 4px 0 #5c636a; }
 .hint-btn { background: #fff3bf; border: 2px solid #f0c419; color: #8a5a00; }
+
+/* 5ボタン表示：ルート／○／×／消す／💡 を 1 行に */
+.ctrl-five { gap: 6px; }
+.ctrl-five .btn { flex: 1 1 0; min-width: 0; padding: 6px 2px; font-size: 1.05rem; font-family: var(--font), var(--emoji); }
+.ctrl-five .five-btn[data-mode="route"] { flex-grow: 1.35; font-size: .95rem; }
+.ctrl-five .five-btn[data-mode="memo-on"], .ctrl-five .five-btn[data-mode="memo-off"] { font-size: 1.35rem; font-weight: 900; }
+.ctrl-five .five-hint { font-size: 1.3rem; }
+.five-btn { border: 2px solid var(--line-soft); }
+.five-btn.on[data-mode="route"] { background: var(--red); border-color: var(--red); color: #fff; box-shadow: 0 4px 0 var(--red-dark); }
+.five-btn.on[data-mode="memo-on"] { background: var(--green); border-color: var(--green); color: #fff; box-shadow: 0 4px 0 var(--green-dark); }
+.five-btn.on[data-mode="memo-off"] { background: #d6336c; border-color: #d6336c; color: #fff; box-shadow: 0 4px 0 #a61e4d; }
+.five-btn.on[data-mode="memo-erase"] { background: #868e96; border-color: #868e96; color: #fff; box-shadow: 0 4px 0 #5c636a; }
+
+/* 設定を開いている間は盤面を見せない（タイマーも止まる） */
+#screen-game.settings-open .board-area { visibility: hidden; }
 /* メモのモード中は盤面のまわりに色を付けて、モードが分かるようにする */
 #screen-game[data-mode="memo-on"] .board-area { background: rgba(59, 181, 74, .08); border-radius: 18px; }
 #screen-game[data-mode="memo-off"] .board-area { background: rgba(214, 51, 108, .07); border-radius: 18px; }
@@ -369,6 +450,13 @@ button { font-family: inherit; touch-action: manipulation; }
 /* 幅の狭いスマートフォン：盤面の左右の余白を減らしてマスを大きくする */
 @media (max-width: 430px) {
   .board-area { padding: 6px 4px; }
+  /* ヘッダー（← ★ ステージ ⏱ ⚙️）が 1 行に収まるように詰める */
+  .game-top { gap: 6px; padding: 8px 10px 4px; }
+  .game-info { min-width: 0; gap: 6px; }
+  .game-info .stars { font-size: .9rem; letter-spacing: 0; }
+  .game-info .size { font-size: .85rem; overflow: hidden; text-overflow: ellipsis; }
+  .game-timer { padding: 5px 9px; font-size: .95rem; }
+  .game-top .icon-btn { width: 40px; height: 40px; }
 }
 
 /* 横向きで高さが低い画面：ボタン類を右側にまとめる */

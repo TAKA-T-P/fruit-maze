@@ -147,6 +147,7 @@ export class BoardRenderer {
     }
     const cell = Math.floor(Math.max(min, Math.min(max, widthCell, maxHeight / hUnits)));
     this.board.style.setProperty('--cell', `${cell}px`);
+    if (this.guide) this._drawGuide(); // マスの大きさが変わったらガイドも描き直す
     return cell;
   }
 
@@ -190,6 +191,8 @@ export class BoardRenderer {
 
     this.board.classList.toggle('at-goal', game.status === 'at-goal');
     this.board.classList.toggle('cleared', game.status === 'cleared');
+    this._lastRoute = game.route;
+    if (this.guide) this._drawGuide();
   }
 
   _setClue(el, { count, clue, done }) {
@@ -233,6 +236,54 @@ export class BoardRenderer {
   }
 
   clearFx() { this.fx.replaceChildren(); }
+
+  /**
+   * なぞる練習用のガイド（点線）。path は [[row, col], ...]。null で消す。
+   * プレイヤーがなぞり終えた部分の点線は消え、残りだけを表示する。
+   */
+  setGuide(path) {
+    this.guide = path || null;
+    this._drawGuide();
+  }
+
+  _drawGuide() {
+    if (!this.guide) {
+      this.guideEl?.remove();
+      this.guideEl = null;
+      return;
+    }
+    const NS = 'http://www.w3.org/2000/svg';
+    if (!this.guideEl) {
+      this.guideEl = document.createElementNS(NS, 'svg');
+      this.guideEl.classList.add('route-guide');
+      this.guideEl.setAttribute('aria-hidden', 'true');
+      this.board.appendChild(this.guideEl);
+    }
+    // なぞり終えたところ（ガイドと同じ順に通っている部分）を数える
+    const route = this._lastRoute || [];
+    let k = 0;
+    while (k < route.length && k < this.guide.length && route[k][0] === this.guide[k][0] && route[k][1] === this.guide[k][1]) k++;
+    const rest = this.guide.slice(Math.max(0, k - 1));
+    const svg = this.guideEl;
+    const w = this.board.clientWidth, h = this.board.clientHeight;
+    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    if (rest.length < 2 || !w) { svg.replaceChildren(); return; }
+    const pts = rest.map(([r, c]) => {
+      const el = this.cellEls[r][c];
+      return [el.offsetLeft + el.offsetWidth / 2, el.offsetTop + el.offsetHeight / 2];
+    });
+    const size = this.cellEls[0][0].offsetWidth || 40;
+    const line = document.createElementNS(NS, 'polyline');
+    line.setAttribute('points', pts.map((p) => p.join(',')).join(' '));
+    line.setAttribute('stroke-width', String(Math.max(3, size * 0.11)));
+    line.setAttribute('stroke-dasharray', `${size * 0.16} ${size * 0.14}`);
+    const dots = pts.slice(1).map(([x, y]) => {
+      const d = document.createElementNS(NS, 'circle');
+      d.setAttribute('cx', x); d.setAttribute('cy', y); d.setAttribute('r', String(Math.max(3, size * 0.08)));
+      return d;
+    });
+    svg.replaceChildren(line, ...dots);
+  }
 
   /**
    * ヒントの強調表示（hint.js の highlight）。表示するだけで、ルートやメモは変えない。

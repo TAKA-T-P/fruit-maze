@@ -17,6 +17,7 @@
 
     <!-- タイトル -->
     <section id="screen-title" class="screen active" aria-label="タイトル">
+      <button type="button" id="btn-settings-title" class="icon-btn title-settings" aria-label="設定" aria-haspopup="dialog">⚙️</button>
       <div class="title-wrap">
         <div class="title-deco" aria-hidden="true">
           <span>🍓</span><span>🍓</span><span>🍓</span>
@@ -33,6 +34,7 @@
           <small>index.html を直接ひらいた場合は、Webサーバー経由でひらいてください（README を参照）。</small>
         </p>
       </div>
+      <p class="copyright">©2026 T.TAKEMOTO / KEC Glows</p>
     </section>
 
     <!-- あそびかた -->
@@ -118,32 +120,16 @@
           </button>
           <button type="button" id="btn-hint" class="btn hint-btn"><span aria-hidden="true">💡</span> ヒント</button>
         </div>
-      </div>
-      <div id="game-hint" class="game-hint"></div>
-
-      <!-- 設定 -->
-      <div id="settings" class="modal-overlay" hidden>
-        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="settings-title">
-          <h2 id="settings-title" class="modal-title"><span aria-hidden="true">⚙️</span> せってい</h2>
-          <div class="setting-row">
-            <span class="setting-name">効果音</span>
-            <div class="seg" data-setting="sound" role="group" aria-label="効果音">
-              <button type="button" data-value="on">🔊 ON</button>
-              <button type="button" data-value="off">🔈 OFF</button>
-            </div>
-          </div>
-          <div class="setting-row">
-            <span class="setting-name">マスの数</span>
-            <div class="seg" data-setting="clueStyle" role="group" aria-label="行・列の数字の表示">
-              <button type="button" data-value="target">3</button>
-              <button type="button" data-value="fraction">1/3</button>
-            </div>
-          </div>
-          <p class="setting-note" id="clue-note"></p>
-          <button type="button" id="btn-reset" class="btn ghost setting-reset"><span aria-hidden="true">↻</span> <span class="label">はじめから</span></button>
-          <button type="button" id="btn-settings-close" class="btn primary">とじる</button>
+        <!-- 5ボタン表示（設定で切り替え）：ルート／○／×／消す／💡 -->
+        <div class="ctrl-row ctrl-five" id="ctrl-five" role="group" aria-label="操作モード" hidden>
+          <button type="button" class="btn five-btn" data-mode="route" aria-pressed="true">ルート</button>
+          <button type="button" class="btn five-btn" data-mode="memo-on" aria-pressed="false" aria-label="○を付ける">○</button>
+          <button type="button" class="btn five-btn" data-mode="memo-off" aria-pressed="false" aria-label="×を付ける">×</button>
+          <button type="button" class="btn five-btn" data-mode="memo-erase" aria-pressed="false" aria-label="○・×を消す">消す</button>
+          <button type="button" id="btn-hint-five" class="btn hint-btn five-hint" aria-label="ヒント">💡</button>
         </div>
       </div>
+      <div id="game-hint" class="game-hint"></div>
 
       <!-- クリア結果 -->
       <div id="result" class="result-overlay" hidden>
@@ -165,6 +151,37 @@
         </div>
       </div>
     </section>
+
+    <!-- 設定（タイトル画面・プレイ画面の ⚙️ から開く） -->
+    <div id="settings" class="modal-overlay" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+        <h2 id="settings-title" class="modal-title"><span aria-hidden="true">⚙️</span> せってい</h2>
+        <div class="setting-row">
+          <span class="setting-name">効果音</span>
+          <div class="seg" data-setting="sound" role="group" aria-label="効果音">
+            <button type="button" data-value="on">🔊 ON</button>
+            <button type="button" data-value="off">🔈 OFF</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <span class="setting-name">マスの数</span>
+          <div class="seg" data-setting="clueStyle" role="group" aria-label="行・列の数字の表示">
+            <button type="button" data-value="target">3</button>
+            <button type="button" data-value="fraction">1/3</button>
+          </div>
+        </div>
+        <p class="setting-note" id="clue-note"></p>
+        <div class="setting-row">
+          <span class="setting-name">ボタン表示</span>
+          <div class="seg" data-setting="buttons" role="group" aria-label="操作ボタンの表示">
+            <button type="button" data-value="cycle">きりかえ</button>
+            <button type="button" data-value="five">5ボタン</button>
+          </div>
+        </div>
+        <button type="button" id="btn-reset" class="btn ghost setting-reset"><span aria-hidden="true">↻</span> <span class="label">はじめから</span></button>
+        <button type="button" id="btn-settings-close" class="btn primary">とじる</button>
+      </div>
+    </div>
   </main>
 
   <script type="module" src="js/main.js"></script>
