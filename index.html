@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#e8384f">
+  <meta name="description" content="数字をヒントに、フルーツの道をつなごう！小学生向けの論理パズルゲーム">
+  <title>フルーツめいろ！</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍓</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="loading">
+  <main id="app" class="app">
+
+    <!-- タイトル -->
+    <section id="screen-title" class="screen active" aria-label="タイトル">
+      <div class="title-wrap">
+        <div class="title-deco" aria-hidden="true">
+          <span>🍓</span><span>🍓</span><span>🍓</span>
+        </div>
+        <h1 class="title-logo"><span class="logo-fruit" aria-hidden="true">🍓</span>フルーツめいろ！</h1>
+        <p class="catch">数字をヒントに、フルーツの道をつなごう！</p>
+        <!-- 将来「3分チャレンジ」「フルーツ図鑑」「記録・称号」をここに追加する -->
+        <nav id="title-menu" class="menu">
+          <button type="button" class="btn primary big" data-action="play">▶ あそぶ</button>
+          <button type="button" class="btn secondary big" data-action="howto">? あそびかた</button>
+        </nav>
+        <p id="load-error" class="load-error" hidden>
+          問題データを よみこめませんでした。<br>
+          <small>index.html を直接ひらいた場合は、Webサーバー経由でひらいてください（README を参照）。</small>
+        </p>
+      </div>
+    </section>
+
+    <!-- あそびかた -->
+    <section id="screen-howto" class="screen" aria-label="あそびかた">
+      <header class="bar">
+        <button type="button" class="icon-btn" data-back="title" aria-label="タイトルへもどる">←</button>
+        <h2 class="bar-title">あそびかた</h2>
+        <span class="howto-step bar-right"></span>
+      </header>
+      <div class="howto-body">
+        <h3 class="howto-title"></h3>
+        <p class="howto-text"></p>
+        <div class="howto-board"></div>
+        <p class="howto-task" aria-live="polite"></p>
+        <!-- 練習用の操作ボタン（ページごとに必要なものだけ表示） -->
+        <div class="howto-tools">
+          <div class="mode-toggle" role="group" aria-label="操作モード" data-tool="mode">
+            <button type="button" class="mode-btn on" data-mode="route" aria-pressed="true"><span aria-hidden="true">🍓</span> ルート</button>
+            <button type="button" class="mode-btn" data-mode="memo" aria-pressed="false"><span aria-hidden="true">✏️</span> メモ</button>
+          </div>
+          <button type="button" class="btn hint-btn" data-tool="hint"><span aria-hidden="true">💡</span> ヒント</button>
+          <button type="button" class="btn secondary" data-tool="undo"><span aria-hidden="true">↶</span> もどる</button>
+          <button type="button" class="btn ghost" data-tool="reset"><span aria-hidden="true">⟲</span> はじめから</button>
+          <button type="button" class="btn ghost" data-tool="clear-memo"><span aria-hidden="true">✕</span> メモを消す</button>
+        </div>
+        <div class="howto-hint"></div>
+      </div>
+      <footer class="howto-nav">
+        <button type="button" class="btn secondary" data-howto="prev">◀ まえへ</button>
+        <div class="howto-dots" aria-hidden="true"></div>
+        <button type="button" class="btn primary" data-howto="next">つぎへ ▶</button>
+      </footer>
+    </section>
+
+    <!-- 難易度選択 -->
+    <section id="screen-select" class="screen" aria-label="むずかしさをえらぶ">
+      <header class="bar">
+        <button type="button" class="icon-btn" data-back="title" aria-label="タイトルへもどる">←</button>
+        <h2 class="bar-title">むずかしさを えらぼう</h2>
+        <span class="bar-right"></span>
+      </header>
+      <div id="level-list" class="level-list"></div>
+    </section>
+
+    <!-- ゲーム -->
+    <section id="screen-game" class="screen" aria-label="パズル">
+      <header class="game-top">
+        <button type="button" class="icon-btn" data-back="select" aria-label="むずかしさ選択へもどる">←</button>
+        <div class="game-info">
+          <span id="game-stars" class="stars"></span>
+          <span id="game-size" class="size"></span>
+        </div>
+        <div class="game-timer" aria-label="タイム">⏱ <span id="game-timer">0:00</span></div>
+        <button type="button" class="icon-btn" data-sound-toggle aria-label="効果音">🔊</button>
+      </header>
+      <div id="game-msg" class="game-msg" aria-live="polite"></div>
+      <div id="board-area" class="board-area"></div>
+      <div class="game-ctrl" id="game-ctrl">
+        <div class="ctrl-row">
+          <div class="mode-toggle" role="group" aria-label="操作モード">
+            <button type="button" class="mode-btn on" data-mode="route" aria-pressed="true"><span aria-hidden="true">🍓</span> ルート</button>
+            <button type="button" class="mode-btn" data-mode="memo" aria-pressed="false"><span aria-hidden="true">✏️</span> メモ</button>
+          </div>
+          <button type="button" id="btn-hint" class="btn hint-btn"><span aria-hidden="true">💡</span> ヒント</button>
+        </div>
+        <div class="ctrl-row">
+          <button type="button" id="btn-undo" class="btn secondary"><span aria-hidden="true">↶</span> 1手もどる</button>
+          <button type="button" id="btn-reset" class="btn ghost"><span aria-hidden="true">⟲</span> <span class="label">はじめから</span></button>
+          <button type="button" id="btn-clear-memo" class="btn ghost"><span aria-hidden="true">✕</span> メモを消す</button>
+        </div>
+      </div>
+      <div id="game-hint" class="game-hint"></div>
+
+      <!-- クリア結果 -->
+      <div id="result" class="result-overlay" hidden>
+        <div class="result-card" role="dialog" aria-labelledby="result-title">
+          <div id="result-fruit" class="result-fruit" aria-hidden="true">🍓</div>
+          <h2 id="result-title" class="result-title">クリア！</h2>
+          <div id="result-badge" class="result-badge"></div>
+          <dl class="result-stats">
+            <div><dt>むずかしさ</dt><dd><span id="result-stars" class="stars"></span> <small id="result-size"></small></dd></div>
+            <div><dt>タイム</dt><dd id="result-time">0:00</dd></div>
+          </dl>
+          <div class="result-actions">
+            <button type="button" id="btn-next" class="btn primary big">つぎの問題 ▶</button>
+            <div class="result-sub">
+              <button type="button" id="btn-retry" class="btn secondary">もういちど</button>
+              <button type="button" id="btn-to-select" class="btn ghost">むずかしさ選択へ</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

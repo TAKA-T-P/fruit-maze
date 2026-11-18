@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "note": "あそびかた専用の問題（本編の問題・クリア記録とは別）。tools/make-tutorial.mjs で作成",
+  "pages": {
+    "route":
+    {
+      "id": "tutorial-route",
+      "difficulty": 1,
+      "rows": 4,
+      "cols": 4,
+      "grid": [
+        [1,1,1,0],
+        [1,1,1,1],
+        [1,1,1,1],
+        [1,1,1,1]
+      ],
+      "rowClues": [1,2,2,3],
+      "colClues": [3,1,4,0],
+      "start": {"row":0,"col":2,"side":"top"},
+      "goal": {"row":1,"col":0,"side":"left"},
+      "solution": [[0,2],[1,2],[2,2],[3,2],[3,1],[3,0],[2,0],[1,0]]
+    },
+    "deduce":
+    {
+      "id": "tutorial-deduce",
+      "difficulty": 1,
+      "rows": 4,
+      "cols": 4,
+      "grid": [
+        [1,1,1,1],
+        [1,1,1,1],
+        [1,1,1,1],
+        [0,1,1,1]
+      ],
+      "rowClues": [2,3,1,2],
+      "colClues": [1,2,4,1],
+      "start": {"row":3,"col":3,"side":"bottom"},
+      "goal": {"row":1,"col":0,"side":"left"},
+      "solution": [[3,3],[3,2],[2,2],[1,2],[0,2],[0,1],[1,1],[1,0]]
+    },
+    "memo":
+    {
+      "id": "tutorial-memo",
+      "difficulty": 1,
+      "rows": 4,
+      "cols": 4,
+      "grid": [
+        [1,1,1,1],
+        [0,1,1,1],
+        [1,1,1,1],
+        [1,1,1,1]
+      ],
+      "rowClues": [0,1,4,3],
+      "colClues": [2,2,2,2],
+      "start": {"row":3,"col":0,"side":"bottom"},
+      "goal": {"row":1,"col":3,"side":"right"},
+      "solution": [[3,0],[2,0],[2,1],[3,1],[3,2],[2,2],[2,3],[1,3]]
+    },
+    "hint":
+    {
+      "id": "tutorial-hint",
+      "difficulty": 1,
+      "rows": 4,
+      "cols": 4,
+      "grid": [
+        [1,1,1,1],
+        [0,1,1,1],
+        [1,0,1,1],
+        [1,1,1,1]
+      ],
+      "rowClues": [2,2,1,4],
+      "colClues": [1,1,3,4],
+      "start": {"row":0,"col":3,"side":"right"},
+      "goal": {"row":3,"col":0,"side":"bottom"},
+      "solution": [[0,3],[0,2],[1,2],[1,3],[2,3],[3,3],[3,2],[3,1],[3,0]]
+    },
+    "challenge":
+    {
+      "id": "tutorial-challenge",
+      "difficulty": 1,
+      "rows": 4,
+      "cols": 4,
+      "grid": [
+        [1,1,1,0],
+        [1,1,1,1],
+        [1,1,1,1],
+        [0,1,1,1]
+      ],
+      "rowClues": [1,4,4,2],
+      "colClues": [2,3,4,2],
+      "start": {"row":1,"col":3,"side":"right"},
+      "goal": {"row":0,"col":2,"side":"top"},
+      "solution": [[1,3],[2,3],[2,2],[3,2],[3,1],[2,1],[2,0],[1,0],[1,1],[1,2],[0,2]]
+    }
+  }
+}

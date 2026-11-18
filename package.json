@@ -1,0 +1,14 @@
+{
+  "name": "fruit-maze",
+  "version": "0.3.0",
+  "private": true,
+  "description": "フルーツめいろ！ 数字をヒントに、フルーツの道をつなごう！",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/logic.test.mjs tests/generator.test.mjs tests/memo.test.mjs tests/hint.test.mjs",
+    "generate": "node tools/generate-puzzles.mjs --report",
+    "validate-puzzles": "node tools/validate-puzzles.mjs",
+    "report": "node tools/validate-puzzles.mjs --report",
+    "serve": "python -m http.server 8000"
+  }
+}

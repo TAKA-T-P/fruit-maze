@@ -1,0 +1,294 @@
+// ロジックの自動テスト：  node --test tests/
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { PuzzleGame, STATUS, MOVE } from '../js/game.js';
+import { validatePuzzle } from '../js/puzzle-utils.js';
+import { PuzzleLibrary, DIFFICULTIES } from '../js/puzzle-loader.js';
+import { createStore, STORAGE_KEY } from '../js/storage.js';
+import { countSolutions } from '../tools/solver.mjs';
+
+const DATA = JSON.parse(readFileSync(new URL('../data/puzzles.json', import.meta.url), 'utf8'));
+
+// テスト用の固定問題
+//   S 🍓 🍓 🍓        行の数字 [3,1,3,1] / 列の数字 [3,2,3,0]
+//   🍓 ・ 🍓 🍓       正解: (0,0)→(0,1)→(0,2)→(1,2)→(2,2)→(2,1)→(2,0)→(3,0)G
+//   🍓 🍓 🍓 🍓
+//   G 🍓 🍓 🍓
+const FIXTURE = {
+  id: 'fixture', difficulty: 1, rows: 4, cols: 4,
+  grid: [[1, 1, 1, 1], [1, 0, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1]],
+  rowClues: [3, 1, 3, 1], colClues: [3, 2, 3, 0],
+  start: { row: 0, col: 0, side: 'left' },
+  goal: { row: 3, col: 0, side: 'bottom' },
+  solution: [[0, 0], [0, 1], [0, 2], [1, 2], [2, 2], [2, 1], [2, 0], [3, 0]],
+};
+// 数字に余裕のある 3×3（判定の挙動だけを見るためのもの。正式な問題データではない）
+const OPEN = {
+  id: 'open', difficulty: 1, rows: 3, cols: 3,
+  grid: [[1, 1, 1], [1, 1, 1], [1, 1, 1]],
+  rowClues: [3, 3, 3], colClues: [3, 3, 3],
+  start: { row: 0, col: 0, side: 'left' },
+  goal: { row: 2, col: 0, side: 'left' },
+};
+const play = (g, cells) => cells.map(([r, c]) => g.moveTo(r, c));
+
+test('fixture は正しい問題データ', () => {
+  assert.deepEqual(validatePuzzle(FIXTURE), []);
+});
+
+// ---------- 基本操作 ----------
+test('スタートマスは最初から 1 個として数える', () => {
+  const g = new PuzzleGame(FIXTURE);
+  assert.deepEqual(g.route, [[0, 0]]);
+  assert.equal(g.rowCounts[0], 1);
+  assert.equal(g.colCounts[0], 1);
+});
+
+test('隣接するフルーツへ進める', () => {
+  const g = new PuzzleGame(FIXTURE);
+  assert.equal(g.moveTo(0, 1).type, MOVE.MOVED);
+  assert.deepEqual(g.head, [0, 1]);
+  assert.equal(g.rowCounts[0], 2);
+  assert.equal(g.colCounts[1], 1);
+});
+
+test('斜め・離れたマスには進めない', () => {
+  const g = new PuzzleGame(FIXTURE);
+  g.moveTo(0, 1);
+  const r1 = g.moveTo(1, 2);
+  assert.equal(r1.type, MOVE.IGNORED);
+  assert.equal(r1.reason, 'not-adjacent');
+  assert.equal(g.moveTo(0, 3).reason, 'not-adjacent');
+  assert.deepEqual(g.head, [0, 1]);
+});
+
+test('空白マスへは進めない', () => {
+  const g = new PuzzleGame(FIXTURE);
+  g.moveTo(0, 1);
+  const r = g.moveTo(1, 1);
+  assert.equal(r.type, MOVE.IGNORED);
+  assert.equal(r.reason, 'blank');
+});
+
+test('通過済みのマスへは進めない（直前のマスは「もどる」になる）', () => {
+  const g = new PuzzleGame(OPEN);
+  play(g, [[0, 1], [1, 1], [1, 0]]);
+  // (1,0) から (0,0)=スタート は通過済み、直前ではない
+  const r = g.moveTo(0, 0);
+  assert.equal(r.type, MOVE.IGNORED);
+  assert.equal(r.reason, 'visited');
+  // 直前のマス (1,1) をタップ → 1 手もどる
+  const u = g.moveTo(1, 1);
+  assert.equal(u.type, MOVE.UNDONE);
+  assert.deepEqual(g.head, [1, 1]);
+  assert.equal(g.isVisited(1, 0), false);
+});
+
+test('1 手もどると数字が正しく減算される', () => {
+  const g = new PuzzleGame(FIXTURE);
+  play(g, [[0, 1], [0, 2]]);
+  assert.equal(g.rowCounts[0], 3);
+  assert.equal(g.colCounts[2], 1);
+  assert.equal(g.undo(), true);
+  assert.equal(g.rowCounts[0], 2);
+  assert.equal(g.colCounts[2], 0);
+  assert.equal(g.isVisited(0, 2), false);
+});
+
+test('スタートだけの状態では もどれない', () => {
+  const g = new PuzzleGame(FIXTURE);
+  assert.equal(g.undo(), false);
+  assert.deepEqual(g.route, [[0, 0]]);
+});
+
+test('やり直しで初期状態に戻る（問題は変わらない）', () => {
+  const g = new PuzzleGame(FIXTURE);
+  play(g, [[0, 1], [0, 2], [1, 2]]);
+  g.reset();
+  assert.deepEqual(g.route, [[0, 0]]);
+  assert.deepEqual(g.rowCounts, [1, 0, 0, 0]);
+  assert.deepEqual(g.colCounts, [1, 0, 0, 0]);
+  assert.equal(g.status, STATUS.PLAYING);
+  assert.equal(g.puzzle, FIXTURE);
+});
+
+// ---------- 数字判定 ----------
+test('行の指定数を超える移動はできない（ルートは維持）', () => {
+  const g = new PuzzleGame(FIXTURE);
+  play(g, [[1, 0], [2, 0], [2, 1], [3, 1]]); // 行3 = 1/1
+  const before = g.route.map((x) => [...x]);
+  const r = g.moveTo(3, 2);
+  assert.equal(r.type, MOVE.BLOCKED);
+  assert.equal(r.overRow, true);
+  assert.equal(r.overCol, false);
+  assert.deepEqual(g.route, before);
+  assert.equal(g.rowCounts[3], 1);
+});
+
+test('列の指定数を超える移動はできない', () => {
+  const g = new PuzzleGame(FIXTURE);
+  play(g, [[0, 1], [0, 2], [1, 2], [2, 2]]); // 列2 = 3/3
+  const r = g.moveTo(3, 2);
+  assert.equal(r.type, MOVE.BLOCKED);
+  assert.equal(r.overRow, false);
+  assert.equal(r.overCol, true);
+  assert.equal(g.colCounts[2], 3);
+});
+
+test('数字 0 の列には入れない', () => {
+  const g = new PuzzleGame(FIXTURE);
+  play(g, [[0, 1], [0, 2]]);
+  const r = g.moveTo(0, 3);
+  assert.equal(r.type, MOVE.BLOCKED);
+  assert.equal(r.overCol, true);
+});
+
+test('行・列が指定数に達すると done になる', () => {
+  const g = new PuzzleGame(FIXTURE);
+  play(g, [[0, 1], [0, 2]]);
+  assert.equal(g.rowState(0).done, true);
+  assert.equal(g.rowState(1).done, false);
+  assert.deepEqual(g.colState(2), { count: 1, clue: 3, done: false });
+});
+
+test('条件を満たさずにゴールしてもクリアにならない／新しい移動は受け付けない', () => {
+  const g = new PuzzleGame(OPEN);
+  const res = play(g, [[1, 0], [2, 0]]);
+  assert.equal(res.at(-1).status, STATUS.AT_GOAL);
+  assert.equal(g.status, STATUS.AT_GOAL);
+  assert.equal(g.rowCounts[2], 1, 'ゴールマスも 1 個に数える');
+  assert.equal(g.colCounts[0], 3);
+  const r = g.moveTo(2, 1);
+  assert.equal(r.type, MOVE.IGNORED);
+  assert.equal(r.reason, 'locked');
+  // もどれば再び進める
+  assert.equal(g.moveTo(1, 0).type, MOVE.UNDONE);
+  assert.equal(g.status, STATUS.PLAYING);
+  assert.equal(g.moveTo(1, 1).type, MOVE.MOVED);
+});
+
+test('正解ルートでゴールするとクリア。クリア後は操作できない', () => {
+  const g = new PuzzleGame(FIXTURE);
+  const res = play(g, FIXTURE.solution.slice(1));
+  assert.ok(res.slice(0, -1).every((r) => r.type === MOVE.MOVED && r.status === STATUS.PLAYING));
+  assert.equal(g.status, STATUS.CLEARED);
+  assert.equal(g.allCluesSatisfied(), true);
+  assert.equal(g.undo(), false);
+  assert.equal(g.moveTo(2, 0).type, MOVE.IGNORED);
+});
+
+// ---------- 収録データ ----------
+test('収録問題：すべて正しい形式で、正解ルートと数字が一致する', () => {
+  assert.ok(DATA.puzzles.length > 0);
+  for (const p of [...DATA.puzzles, DATA.tutorial]) assert.deepEqual(validatePuzzle(p), [], p.id);
+});
+
+test('収録問題：エンジンで正解ルートを再生するとクリアになる', () => {
+  for (const p of [...DATA.puzzles, DATA.tutorial]) {
+    const g = new PuzzleGame(p);
+    for (const [r, c] of p.solution.slice(1)) assert.equal(g.moveTo(r, c).type, MOVE.MOVED, `${p.id} (${r},${c})`);
+    assert.equal(g.status, STATUS.CLEARED, p.id);
+  }
+});
+
+test('収録問題：解はちょうど 1 つ（ソルバーで確認）', () => {
+  for (const p of [...DATA.puzzles, DATA.tutorial]) {
+    const { count, solutions } = countSolutions(p, 2);
+    assert.equal(count, 1, `${p.id} の解の数`);
+    assert.deepEqual(solutions[0], p.solution, p.id);
+  }
+});
+
+test('収録問題：id 重複なし・盤面サイズが難易度と一致', () => {
+  const ids = new Set();
+  for (const p of DATA.puzzles) {
+    assert.ok(!ids.has(p.id), `重複 ${p.id}`);
+    ids.add(p.id);
+    const d = DIFFICULTIES.find((x) => x.level === p.difficulty);
+    assert.equal(p.rows, d.size, p.id);
+    assert.equal(p.cols, d.size, p.id);
+  }
+});
+
+// ---------- 問題管理 ----------
+test('ライブラリ：難易度別に読み込み、無効な問題はスキップ', () => {
+  const broken = { ...FIXTURE, id: 'broken', rowClues: [9, 1, 3, 1] };
+  const skipped = [];
+  const lib = new PuzzleLibrary({ puzzles: [...DATA.puzzles, broken], tutorial: DATA.tutorial }, { onInvalid: (id) => skipped.push(id) });
+  assert.deepEqual(skipped, ['broken']);
+  for (const d of DIFFICULTIES) {
+    const expected = DATA.puzzles.filter((p) => p.difficulty === d.level).length;
+    assert.equal(lib.count(d.level), expected);
+    assert.ok(lib.list(d.level).every((p) => p.difficulty === d.level));
+  }
+  assert.ok(lib.tutorial);
+});
+
+test('ランダム出題：選んだ難易度から出し、直前の問題は避ける', () => {
+  const lib = new PuzzleLibrary(DATA);
+  const seen = new Set();
+  let prev = null;
+  for (let i = 0; i < 3000; i++) {
+    const p = lib.pickRandom(1, { excludeId: prev });
+    assert.equal(p.difficulty, 1);
+    assert.notEqual(p.id, prev);
+    seen.add(p.id);
+    prev = p.id;
+  }
+  assert.equal(seen.size, lib.count(1), 'すべての問題が出題されうる');
+});
+
+test('ランダム出題：1 問しかなければ同じ問題を再出題、0 問なら null', () => {
+  const lib = new PuzzleLibrary({ puzzles: [FIXTURE] });
+  assert.equal(lib.pickRandom(1, { excludeId: 'fixture' }).id, 'fixture');
+  assert.equal(lib.pickRandom(4), null);
+});
+
+test('ランダム出題：重み付け（将来の未クリア優先用）', () => {
+  const lib = new PuzzleLibrary(DATA);
+  const only = lib.list(2)[3].id;
+  for (let i = 0; i < 50; i++) assert.equal(lib.pickRandom(2, { weight: (p) => (p.id === only ? 1 : 0) }).id, only);
+});
+
+// ---------- 保存 ----------
+function memoryStorage() {
+  const m = new Map();
+  return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k), _m: m };
+}
+
+test('初回クリア数は重複カウントしない', () => {
+  const s = createStore(memoryStorage());
+  assert.deepEqual(s.recordClear('easy-001'), { firstClear: true, clearCount: 1 });
+  assert.deepEqual(s.recordClear('easy-001'), { firstClear: false, clearCount: 2 });
+  s.recordClear('easy-002');
+  s.recordClear('easy-001');
+  assert.equal(s.firstClearCount(), 2);
+  assert.equal(s.getRecord('easy-001').clearCount, 3);
+  assert.equal(s.firstClearCount(['easy-002', 'normal-001']), 1);
+});
+
+test('保存データを読み込み直しても記録が維持される', () => {
+  const backend = memoryStorage();
+  const s1 = createStore(backend);
+  const when = new Date('2026-11-18T10:00:00Z');
+  s1.recordClear('hard-003', when);
+  s1.setLastDifficulty(3);
+  const s2 = createStore(backend);
+  assert.equal(s2.isCleared('hard-003'), true);
+  assert.equal(s2.getRecord('hard-003').firstClearedAt, when.toISOString());
+  assert.equal(s2.getLastDifficulty(), 3);
+  assert.deepEqual(s2.clearedIds(), ['hard-003']);
+});
+
+test('壊れた保存データ・保存不可の環境でも動く', () => {
+  const backend = memoryStorage();
+  backend.setItem(STORAGE_KEY, '{oops');
+  const s = createStore(backend);
+  assert.equal(s.firstClearCount(), 0);
+  const noStore = createStore(null);
+  assert.equal(noStore.recordClear('x').firstClear, true);
+  const throwing = { getItem() { throw new Error('denied'); }, setItem() { throw new Error('denied'); } };
+  const s3 = createStore(throwing);
+  assert.equal(s3.recordClear('y').firstClear, true);
+});

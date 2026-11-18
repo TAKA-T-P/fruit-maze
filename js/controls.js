@@ -1,0 +1,182 @@
+// 入力処理：タップ・ドラッグ（Pointer Events でマウス／タッチ／ペンを共通処理）・キーボード
+import { MOVE } from './game.js';
+
+const DRAG_TOLERANCE = 0.42; // ドラッグ中はマスの中心付近に入ったときだけ反応（角での斜め誤判定を防ぐ）
+const TAP_TOLERANCE = 0.5;
+const MAX_INTERPOLATE = 4;   // 速いドラッグで飛ばしたマスを補う最大距離
+
+export class BoardControls {
+  /**
+   * @param {HTMLElement} surface  ポインター入力を受け取る要素（盤面のまわりも含めて広めに）
+   * @param {object} opt
+   * @param {() => import('./game.js').PuzzleGame} opt.getGame
+   * @param {() => import('./renderer.js').BoardRenderer} opt.getRenderer
+   * @param {(result: object, source: 'tap'|'drag'|'key') => void} opt.onResult  1 回の操作結果ごとに呼ばれる
+   * @param {() => void} [opt.onUndoKey]
+   * @param {() => 'route'|'memo'} [opt.getMode]           操作モード（既定：ルート）
+   * @param {() => import('./memo.js').MemoBoard} [opt.getMemo]
+   * @param {(cell: {row:number,col:number}, value: number) => void} [opt.onMemo]  メモが変わったとき
+   * @param {() => boolean} [opt.isBlocked]                 true の間は盤面の操作を受け付けない（ヒント表示中など）
+   * @param {() => void} [opt.onBlocked]                    操作を受け付けなかったとき（ヒントを閉じる等）
+   * @param {() => void} [opt.onToggleMode]                 M キー
+   */
+  constructor(surface, { getGame, getRenderer, onResult, onUndoKey, getMode = () => 'route', getMemo = () => null, onMemo = () => {}, isBlocked = () => false, onBlocked = () => {}, onToggleMode = null }) {
+    this.surface = surface;
+    this.getGame = getGame;
+    this.getRenderer = getRenderer;
+    this.onResult = onResult;
+    this.onUndoKey = onUndoKey;
+    this.getMode = getMode;
+    this.getMemo = getMemo;
+    this.onMemo = onMemo;
+    this.isBlocked = isBlocked;
+    this.onBlocked = onBlocked;
+    this.onToggleMode = onToggleMode;
+    this.memoStroke = false;
+    this.enabled = true;
+    this.pointerId = null;
+    this.lastCellKey = null;
+
+    surface.addEventListener('pointerdown', (e) => this._down(e));
+    surface.addEventListener('pointermove', (e) => this._move(e));
+    surface.addEventListener('pointerup', (e) => this._up(e));
+    surface.addEventListener('pointercancel', (e) => this._up(e));
+    surface.addEventListener('lostpointercapture', (e) => this._up(e));
+    surface.addEventListener('contextmenu', (e) => e.preventDefault());
+    // iOS Safari の古い版ではタッチのスクロールを止めるために touchmove の preventDefault も必要
+    surface.addEventListener('touchmove', (e) => { if (this.pointerId !== null) e.preventDefault(); }, { passive: false });
+    this._keyHandler = (e) => this._key(e);
+    window.addEventListener('keydown', this._keyHandler);
+  }
+
+  setEnabled(v) {
+    this.enabled = v;
+    if (!v) {
+      this.pointerId = null;
+      if (this.memoStroke) { this.memoStroke = false; this.getMemo()?.endStroke(); }
+    }
+  }
+
+  _down(e) {
+    if (!this.enabled || this.pointerId !== null) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const renderer = this.getRenderer();
+    if (!renderer) return;
+    e.preventDefault();
+    if (this.isBlocked()) { this.onBlocked(); return; } // ヒント表示中：最初のタップはヒントを閉じるだけ
+    this.pointerId = e.pointerId;
+    try { this.surface.setPointerCapture(e.pointerId); } catch { /* 古いブラウザ */ }
+    const cell = renderer.cellFromPoint(e.clientX, e.clientY, TAP_TOLERANCE);
+    this.lastCellKey = cell ? `${cell.row},${cell.col}` : null;
+    if (this.getMode() === 'memo') {
+      // メモ：最初に触れたマスで決まった値を、なぞったマスにも付ける
+      const memo = this.getMemo();
+      if (!memo) return;
+      memo.beginStroke();
+      this.memoStroke = true;
+      if (cell) this._memoAt(cell);
+      return;
+    }
+    if (!cell) return;
+    const game = this.getGame();
+    const [hr, hc] = game.head;
+    if (cell.row === hr && cell.col === hc) return; // 先頭マスから なぞり始める
+    // タップ：隣のマスへ進む／直前のマスなら 1 手もどる
+    this.onResult(game.moveTo(cell.row, cell.col), 'tap');
+  }
+
+  _move(e) {
+    if (e.pointerId !== this.pointerId || !this.enabled) return;
+    e.preventDefault();
+    const renderer = this.getRenderer();
+    // 高速なマウス移動では coalesced events で途中の点も拾う
+    const events = typeof e.getCoalescedEvents === 'function' ? e.getCoalescedEvents() : [];
+    for (const ev of (events.length ? events : [e])) {
+      const cell = renderer.cellFromPoint(ev.clientX, ev.clientY, DRAG_TOLERANCE);
+      if (!cell) continue; // 盤面の外やマスの境目：ルートはそのまま
+      const key = `${cell.row},${cell.col}`;
+      if (key === this.lastCellKey) continue;
+      this.lastCellKey = key;
+      if (this.memoStroke) this._memoAt(cell);
+      else this._dragTo(cell.row, cell.col);
+    }
+  }
+
+  _up(e) {
+    if (e.pointerId !== this.pointerId) return;
+    this.pointerId = null;
+    this.lastCellKey = null;
+    if (this.memoStroke) { this.memoStroke = false; this.getMemo()?.endStroke(); }
+  }
+
+  _memoAt(cell) {
+    const memo = this.getMemo();
+    const v = memo.strokeAt(cell.row, cell.col, this.getGame());
+    if (v !== null) this.onMemo(cell, v);
+  }
+
+  /** ドラッグで指が入ったマスに向かってルートを伸ばす（または戻す） */
+  _dragTo(r, c) {
+    const game = this.getGame();
+    const [hr, hc] = game.head;
+    if (r === hr && c === hc) return;
+
+    // ルート上のマスまで指を戻した → そこまで 1 手ずつもどる
+    const idx = game.routeIndexOf(r, c);
+    if (idx >= 0 && idx < game.route.length - 1) {
+      if (game.status === 'cleared') return;
+      while (game.route.length - 1 > idx) {
+        const res = game.moveTo(...game.previous);
+        this.onResult(res, 'drag');
+        if (res.type !== MOVE.UNDONE) break;
+      }
+      return;
+    }
+
+    const dist = Math.abs(r - hr) + Math.abs(c - hc);
+    if (dist === 1 || dist > MAX_INTERPOLATE) {
+      if (dist === 1) this.onResult(game.moveTo(r, c), 'drag');
+      return;
+    }
+    // 指が速くてマスを飛ばした：目的のマスへ 1 マスずつ補って進む
+    for (let i = 0; i < dist; i++) {
+      const [cr, cc] = game.head;
+      if (cr === r && cc === c) break;
+      const dr = Math.sign(r - cr), dc = Math.sign(c - cc);
+      const tries = Math.abs(r - cr) >= Math.abs(c - cc)
+        ? [[cr + dr, cc], [cr, cc + dc]]
+        : [[cr, cc + dc], [cr + dr, cc]];
+      let moved = false;
+      for (const [nr, nc] of tries) {
+        if ((nr === cr && nc === cc) || game.check(nr, nc).type !== MOVE.MOVED) continue;
+        this.onResult(game.moveTo(nr, nc), 'drag');
+        moved = true;
+        break;
+      }
+      if (!moved) {
+        // 進めない理由（数字の超過など）を知らせるため、第一候補の結果だけ通知する
+        const [nr, nc] = tries.find(([a, b]) => a !== cr || b !== cc) || tries[0];
+        const res = game.check(nr, nc);
+        if (res.type === MOVE.BLOCKED) this.onResult({ ...res, row: nr, col: nc, status: game.status }, 'drag');
+        break;
+      }
+    }
+  }
+
+  _key(e) {
+    if (!this.enabled || e.altKey || e.ctrlKey || e.metaKey) return;
+    if (!this.surface.isConnected || this.surface.offsetParent === null) return; // ゲーム画面が表示されていない
+    if ((e.key === 'm' || e.key === 'M') && this.onToggleMode) { e.preventDefault(); this.onToggleMode(); return; }
+    if (this.isBlocked()) return;
+    const dirs = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
+    if (dirs[e.key]) {
+      e.preventDefault();
+      const game = this.getGame();
+      const [hr, hc] = game.head;
+      this.onResult(game.moveTo(hr + dirs[e.key][0], hc + dirs[e.key][1]), 'key');
+    } else if ((e.key === 'Backspace' || e.key === 'z' || e.key === 'Z') && this.onUndoKey) {
+      e.preventDefault();
+      this.onUndoKey();
+    }
+  }
+}
