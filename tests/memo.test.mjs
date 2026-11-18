@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { MemoBoard, MEMO } from '../js/memo.js';
+import { MemoBoard, MEMO, isBlockedByMemo } from '../js/memo.js';
 import { PuzzleGame, STATUS, MOVE } from '../js/game.js';
 
 const DATA = JSON.parse(readFileSync(new URL('../data/puzzles.json', import.meta.url), 'utf8'));
@@ -105,21 +105,35 @@ test('問題が変わると新しいメモになる（前の問題のメモは�
   assert.equal(mb.rows, b.rows);
 });
 
-test('メモはクリア判定に影響しない（× を付けたマスもルートは通れる）', () => {
+test('メモはゲームのルール・クリア判定を変えない（エンジンはメモを見ない）', () => {
   for (const p of [P, ...DATA.puzzles.filter((_, i) => i % 25 === 0)]) {
     const g = new PuzzleGame(p);
     const m = new MemoBoard(p);
     // 正解ルートのマスに全部 × を付け、ほかのマスに ○ を付ける（全部まちがったメモ）
     const onSol = new Set(p.solution.map(([r, c]) => `${r},${c}`));
     for (let r = 0; r < p.rows; r++) for (let c = 0; c < p.cols; c++) m.set(r, c, onSol.has(`${r},${c}`) ? MEMO.OFF : MEMO.ON);
-    for (const [r, c] of p.solution.slice(1)) {
-      const res = g.moveTo(r, c);
-      assert.equal(res.type, MOVE.MOVED, `${p.id} (${r},${c})`);
-      if (m.get(r, c) === MEMO.OFF) m.erase(r, c); // 画面側の処理：× のマスを通ったら × を消す
-      assert.equal(m.get(r, c), MEMO.NONE);
-    }
+    const before = JSON.stringify(m.entries());
+    for (const [r, c] of p.solution.slice(1)) assert.equal(g.moveTo(r, c).type, MOVE.MOVED, `${p.id} (${r},${c})`);
     assert.equal(g.status, STATUS.CLEARED, p.id);
+    assert.equal(JSON.stringify(m.entries()), before, 'ルートを動かしてもメモは変わらない');
   }
+});
+
+test('× を付けたマスには、ルートで進めない（操作の側で止める）。× を消せば進める', () => {
+  const g = new PuzzleGame(P);
+  const m = new MemoBoard(P);
+  m.set(0, 1, MEMO.OFF);
+  assert.equal(isBlockedByMemo(m, 0, 1), true, '×');
+  m.set(0, 1, MEMO.ON);
+  assert.equal(isBlockedByMemo(m, 0, 1), false, '○ は通れる');
+  m.set(0, 1, MEMO.NONE);
+  assert.equal(isBlockedByMemo(m, 0, 1), false, 'なし');
+  assert.equal(isBlockedByMemo(m, 1, 1), false, '空白（そもそも進めない）');
+  assert.equal(isBlockedByMemo(null, 0, 1), false, 'メモなし');
+  // START・GOAL・通ったマスには × を付けられないので、もどる操作をじゃますることはない
+  g.moveTo(0, 1);
+  assert.equal(m.canEdit(0, 1, g), false);
+  assert.equal(m.canEdit(0, 0, g), false);
 });
 
 test('あそびかた用：切り替え順と編集できるマスを限定できる', () => {

@@ -292,7 +292,6 @@ export class HowTo {
   _onResult(res, source) {
     const g = this.game;
     if (res.type === MOVE.MOVED) {
-      if (this.memo.get(res.row, res.col) === MEMO.OFF) this.memo.erase(res.row, res.col);
       if (g.status === STATUS.CLEARED) {
         sound.play('clear');
         this.controls.setEnabled(false);
@@ -300,6 +299,7 @@ export class HowTo {
       } else sound.play(g.status === STATUS.AT_GOAL ? 'goalMiss' : 'step');
     } else if (res.type === MOVE.UNDONE) sound.play('undo');
     else if (res.type === MOVE.BLOCKED) { sound.play('error'); this.renderer.flashOverflow(res); }
+    else if (res.type === MOVE.IGNORED && res.reason === 'memo-x') { sound.play('error'); this.renderer.nudge(res.row, res.col); }
     else if (res.type === MOVE.IGNORED && source === 'tap') this.renderer.nudge(res.row, res.col);
     this.page.onResult?.(res, source);
     this.refresh();

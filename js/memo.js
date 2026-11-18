@@ -27,6 +27,15 @@ export function memoToolForMode(mode) {
   }
 }
 
+/**
+ * ×（通らないと予想）を付けたマスには、ルートで進めない（操作の側で止める。ゲームのルール自体は変えない）。
+ * ×を消せば、また通れる。
+ * @param {MemoBoard|null} memo
+ */
+export function isBlockedByMemo(memo, r, c) {
+  return !!memo && memo.get(r, c) === MEMO.OFF;
+}
+
 export class MemoBoard {
   /**
    * @param {object} puzzle

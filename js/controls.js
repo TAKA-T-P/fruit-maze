@@ -1,6 +1,6 @@
 // 入力処理：タップ・ドラッグ（Pointer Events でマウス／タッチ／ペンを共通処理）・キーボード
 import { MOVE } from './game.js';
-import { memoToolForMode } from './memo.js';
+import { memoToolForMode, isBlockedByMemo } from './memo.js';
 
 const DRAG_TOLERANCE = 0.42; // ドラッグ中はマスの中心付近に入ったときだけ反応（角での斜め誤判定を防ぐ）
 const TAP_TOLERANCE = 0.5;
@@ -69,6 +69,7 @@ export class BoardControls {
     try { this.surface.setPointerCapture(e.pointerId); } catch { /* 古いブラウザ */ }
     const cell = renderer.cellFromPoint(e.clientX, e.clientY, TAP_TOLERANCE);
     this.lastCellKey = cell ? `${cell.row},${cell.col}` : null;
+    this.dragBlocked = false;
     const tool = memoToolForMode(this.getMode());
     if (tool) {
       // メモ（○つけ・×つけ・消す）：最初に触れたマスで決まった値を、なぞったマスにも付ける
@@ -84,7 +85,20 @@ export class BoardControls {
     const [hr, hc] = game.head;
     if (cell.row === hr && cell.col === hc) return; // 先頭マスから なぞり始める
     // タップ：隣のマスへ進む／直前のマスなら 1 手もどる
-    this.onResult(game.moveTo(cell.row, cell.col), 'tap');
+    this.onResult(this._tryMove(cell.row, cell.col), 'tap');
+  }
+
+  /**
+   * ルートを 1 マス進める（直前のマスなら 1 手もどる）。
+   * ×を付けたマスには進めない：ゲームのルール上は進めるマスでも、ここで止めて reason 'memo-x' を返す。
+   */
+  _tryMove(r, c) {
+    const game = this.getGame();
+    if (game.check(r, c).type === MOVE.MOVED && isBlockedByMemo(this.getMemo(), r, c)) {
+      this.dragBlocked = true; // このなぞりでは、もうマス飛ばしの補いをしない（×のまわりを勝手に回り込まない）
+      return { type: MOVE.IGNORED, reason: 'memo-x', row: r, col: c, status: game.status };
+    }
+    return game.moveTo(r, c);
   }
 
   _move(e) {
@@ -136,8 +150,8 @@ export class BoardControls {
     }
 
     const dist = Math.abs(r - hr) + Math.abs(c - hc);
-    if (dist === 1 || dist > MAX_INTERPOLATE) {
-      if (dist === 1) this.onResult(game.moveTo(r, c), 'drag');
+    if (dist === 1 || dist > MAX_INTERPOLATE || this.dragBlocked) {
+      if (dist === 1) this.onResult(this._tryMove(r, c), 'drag');
       return;
     }
     // 指が速くてマスを飛ばした：目的のマスへ 1 マスずつ補って進む
@@ -150,7 +164,7 @@ export class BoardControls {
         : [[cr, cc + dc], [cr + dr, cc]];
       let moved = false;
       for (const [nr, nc] of tries) {
-        if ((nr === cr && nc === cc) || game.check(nr, nc).type !== MOVE.MOVED) continue;
+        if ((nr === cr && nc === cc) || game.check(nr, nc).type !== MOVE.MOVED || isBlockedByMemo(this.getMemo(), nr, nc)) continue;
         this.onResult(game.moveTo(nr, nc), 'drag');
         moved = true;
         break;
@@ -160,6 +174,7 @@ export class BoardControls {
         const [nr, nc] = tries.find(([a, b]) => a !== cr || b !== cc) || tries[0];
         const res = game.check(nr, nc);
         if (res.type === MOVE.BLOCKED) this.onResult({ ...res, row: nr, col: nc, status: game.status }, 'drag');
+        else if (res.type === MOVE.MOVED && isBlockedByMemo(this.getMemo(), nr, nc)) this.onResult(this._tryMove(nr, nc), 'drag');
         break;
       }
     }
@@ -175,7 +190,7 @@ export class BoardControls {
       e.preventDefault();
       const game = this.getGame();
       const [hr, hc] = game.head;
-      this.onResult(game.moveTo(hr + dirs[e.key][0], hc + dirs[e.key][1]), 'key');
+      this.onResult(this._tryMove(hr + dirs[e.key][0], hc + dirs[e.key][1]), 'key');
     } else if ((e.key === 'Backspace' || e.key === 'z' || e.key === 'Z') && this.onUndoKey) {
       e.preventDefault();
       this.onUndoKey();

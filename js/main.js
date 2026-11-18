@@ -14,7 +14,7 @@ import { pendingRewards, markRewardsSeen, migrateFirstRun } from './rewards.js';
 import { renderZukan, lockedDetail } from './collection-ui.js';
 import { renderTrophies } from './trophy-ui.js';
 import { RewardOverlay } from './reward-ui.js';
-import { MemoBoard, MEMO, nextMode } from './memo.js';
+import { MemoBoard, nextMode } from './memo.js';
 import { HintSession } from './hint.js';
 import { HintPanel } from './hint-ui.js';
 import { createSettings } from './settings.js';
@@ -332,8 +332,6 @@ function handleResult(res) {
   const g = state.game;
   switch (res.type) {
     case MOVE.MOVED:
-      // ×のメモを付けたマスにも進める。そのときは×を消してからルートを通す（○は残し、ルート表示を優先）
-      if (state.memo.get(res.row, res.col) === MEMO.OFF) state.memo.erase(res.row, res.col);
       if (g.status === STATUS.CLEARED) return onCleared();
       if (g.status === STATUS.AT_GOAL) {
         sound.play('goalMiss');
@@ -356,6 +354,11 @@ function handleResult(res) {
       if (res.reason === 'locked') {
         state.renderer.nudge(res.row, res.col);
         setMessage('数字が まだ そろっていないよ！ もどって 道を なおそう', 'warn');
+      } else if (res.reason === 'memo-x') {
+        // ×を付けたマスには進めない（×を消すと通れる）
+        sound.play('error');
+        state.renderer.nudge(res.row, res.col);
+        setMessage('×のマスは とおれないよ。×を消すと とおれるよ', 'error', 1600);
       }
       break;
   }
