@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { TA_LEVELS, taConfig, overtimeSecondsOf, challengeName } from '../js/challenge-config.js';
-import { titleFor, nextTitle, nextTitleText, titlesOf, isMaster, allMaster } from '../js/challenge-titles.js';
+import { titleFor, nextTitle, nextTitleText, titlesOf, isMaster, allMaster, masterClearsOf, TITLE_TABLE } from '../js/challenge-titles.js';
 import { createChallengeStore, TIME_ATTACK_KEY } from '../js/challenge-storage.js';
 import { TimeAttack, TA_STATE, formatRemaining } from '../js/challenge.js';
 import { PuzzleGame, MOVE, STATUS } from '../js/game.js';
@@ -26,7 +26,7 @@ test('難易度ごとの制限時間・ロスタイム・最高称号の条件',
   assert.equal(TA_LEVELS.length, 5);
   for (const [level, normal, over, master] of spec) {
     const c = taConfig(level);
-    assert.deepEqual([c.normalSeconds, c.overtimeSeconds, c.masterClears], [normal, over, master], `★${level}`);
+    assert.deepEqual([c.normalSeconds, c.overtimeSeconds, masterClearsOf(level)], [normal, over, master], `★${level}`);
     assert.equal(overtimeSecondsOf(level), (level + 1) * 5);
   }
   assert.equal(challengeName(3), '4分チャレンジ');
@@ -55,8 +55,8 @@ test('称号：最高称号と、次の称号までの残り', () => {
   assert.deepEqual(((n) => [n.title.id, n.remaining])(nextTitle(5, 1)), ['tatsujin', 1]);
   assert.equal(nextTitle(3, 5), null);
   assert.equal(nextTitleText(3, 3), '次の称号まで あと1問');
-  assert.equal(nextTitleText(5, 2), 'あと1問で 👑 めいろ皆伝！');
-  assert.equal(nextTitleText(4, 4), '👑 めいろ皆伝！');
+  assert.equal(nextTitleText(5, 2), 'あと1問で 👑 フルーツめいろの神様！');
+  assert.equal(nextTitleText(4, 4), '👑 フルーツ太陽王！');
   assert.equal(allMaster({ 1: 10, 2: 7, 3: 5, 4: 4, 5: 2 }), false);
   assert.equal(allMaster({ 1: 12, 2: 7, 3: 5, 4: 4, 5: 3 }), true);
 });
@@ -313,4 +313,31 @@ test('全 250 問：タイムアタックのルールでも正解ルートでク
     for (const [r, c] of p.solution.slice(1)) assert.equal(g.moveTo(r, c).type, MOVE.MOVED, p.id);
     assert.equal(g.status, STATUS.CLEARED, p.id);
   }
+});
+
+test('称号：難易度ごとに別の名前（全 22 種類・重複なし）。絵文字は段階ごとに共通', () => {
+  const expected = {
+    1: [[1, '🌱', 'めいろのたまご'], [3, '🍀', 'フルーツたんけんたい'], [5, '⭐', 'めいろの道しるべ'], [7, '🔥', 'フルーツスピードスター'], [10, '👑', 'フルーツスピード王']],
+    2: [[1, '🌱', 'めいろの見習い'], [2, '🍀', 'フルーツトラベラー'], [4, '⭐', 'ひらめきナビゲーター'], [5, '🔥', 'めいろの達人'], [7, '👑', 'フルーツひらめき王']],
+    3: [[1, '🌱', 'すいりのチャレンジャー'], [2, '🍀', 'めいろハンター'], [3, '⭐', 'ひらめきマスター'], [4, '🔥', 'フルーツの賢者'], [5, '👑', 'フルーツ知恵の王']],
+    4: [[1, '🍀', 'めいろの探究者'], [2, '⭐', 'すいりのエキスパート'], [3, '🔥', 'めいろの大賢者'], [4, '👑', 'フルーツ太陽王']],
+    5: [[1, '🍀', '伝説への挑戦者'], [2, '🔥', '究極のめいろマスター'], [3, '👑', 'フルーツめいろの神様']],
+  };
+  for (const level of [1, 2, 3, 4, 5]) {
+    assert.deepEqual(titlesOf(level).map((t) => [t.need, t.icon, t.name]), expected[level], `★${level}`);
+  }
+  const names = Object.values(TITLE_TABLE).flat().map((t) => t.name);
+  assert.equal(names.length, 22);
+  assert.equal(new Set(names).size, 22, '重複なし');
+  assert.equal(titleFor(1, 4).name, 'フルーツたんけんたい');
+  assert.equal(titleFor(5, 1).name, '伝説への挑戦者');
+  assert.equal(titleFor(4, 0), null);
+});
+
+test('称号：保存済みの最高クリア数から、新しい名前の称号が計算される（記録はそのまま）', () => {
+  const backend = mem();
+  backend.setItem('fruitMaze.timeAttack.v1', JSON.stringify({ version: 1, levels: { 2: { bestClears: 5, playCount: 9, lastClears: 3 } } }));
+  const s = createChallengeStore(backend);
+  assert.deepEqual([s.get(2).bestClears, s.get(2).playCount, s.get(2).lastClears], [5, 9, 3]);
+  assert.equal(titleFor(2, s.get(2).bestClears).name, 'めいろの達人');
 });

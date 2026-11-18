@@ -22,7 +22,7 @@ import * as sound from './sound.js';
 import { TimeAttack, TA_STATE, formatRemaining } from './challenge.js';
 import { createChallengeStore } from './challenge-storage.js';
 import { COUNTDOWN_STEP_MS, CLEAR_FX_MS, TIMEUP_MS, LOW_TIME_SECONDS } from './challenge-config.js';
-import { titleFor, nextTitle } from './challenge-titles.js';
+import { titleFor, nextTitle, MASTER_TITLE_ID } from './challenge-titles.js';
 import { renderTaSelect, renderTaIntro, renderTaResult, renderTaRecords } from './challenge-ui.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -752,7 +752,7 @@ function updateTaHud() {
   $('#ta-title').textContent = t ? `${t.icon} ${t.name}` : '';
   $('#ta-title').hidden = !t;
   const n = nextTitle(ta.level, ta.clears);
-  $('#ta-next').textContent = n ? (n.title.id === 'kaiden' ? `あと${n.remaining}問で 👑` : `次の称号まで あと${n.remaining}問`) : '';
+  $('#ta-next').textContent = n ? (n.title.id === MASTER_TITLE_ID ? `あと${n.remaining}問で ${n.title.icon}` : `次の称号まで あと${n.remaining}問`) : '';
   $('#ta-next').hidden = !n;
 }
 

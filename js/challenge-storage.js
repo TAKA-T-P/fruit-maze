@@ -6,7 +6,7 @@
 //       "1": { bestClears, playCount, lastClears, bestAt, masterAchievedAt, lastPlayedAt },
 //       ...
 //     },
-//     completeAt: null   // 5 難易度すべてで「めいろ皆伝」になった日時（一度なったら残す）
+//     completeAt: null   // 5 難易度すべてで最高称号になった日時（一度なったら残す）
 //   }
 // 最後まで遊んだ挑戦だけを記録する（途中でやめた挑戦は記録しない・プレイ回数にも数えない）。
 
@@ -54,7 +54,7 @@ export function createChallengeStore(backend = safeLocalStorage()) {
     /** 難易度ごとの記録（コピー） */
     get(level) { return { ...data.levels[String(level)] }; },
     bestByLevel() { return Object.fromEntries(TA_LEVELS.map((c) => [c.level, data.levels[String(c.level)].bestClears])); },
-    /** 5 難易度すべてで「めいろ皆伝」になったことがある */
+    /** 5 難易度すべてで最高称号になったことがある */
     isComplete() { return !!data.completeAt; },
     completeAt() { return data.completeAt; },
     /**
