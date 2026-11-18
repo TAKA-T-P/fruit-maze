@@ -149,7 +149,7 @@ test('行・列が指定数に達すると done になる', () => {
   play(g, [[0, 1], [0, 2]]);
   assert.equal(g.rowState(0).done, true);
   assert.equal(g.rowState(1).done, false);
-  assert.deepEqual(g.colState(2), { count: 1, clue: 3, done: false });
+  assert.deepEqual(g.colState(2), { count: 1, clue: 3, done: false, over: false });
 });
 
 test('条件を満たさずにゴールしてもクリアにならない／新しい移動は受け付けない', () => {

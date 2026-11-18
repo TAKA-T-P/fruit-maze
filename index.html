@@ -28,6 +28,7 @@
         <!-- 将来「3分チャレンジ」「記録・称号」をここに追加する -->
         <nav id="title-menu" class="menu">
           <button type="button" class="btn primary big" data-action="play"><span class="play-fruit" aria-hidden="true">🍓</span> あそぶ</button>
+          <button type="button" class="btn ta-start-btn" data-action="timeattack"><span aria-hidden="true">⏱️</span> タイムアタック</button>
           <div class="menu-tiles">
             <button type="button" class="btn secondary menu-tile" data-action="howto"><span class="tile-icon" aria-hidden="true">📖</span><span>あそびかた</span></button>
             <button type="button" class="btn secondary menu-tile" data-action="zukan"><span class="tile-icon" aria-hidden="true">🍇</span><span>フルーツ<br>ずかん</span><span class="tile-badge" id="zukan-badge" hidden>NEW</span></button>
@@ -84,6 +85,54 @@
         <span class="bar-right"></span>
       </header>
       <div id="level-list" class="level-list"></div>
+    </section>
+
+    <!-- タイムアタック：難易度選択 -->
+    <section id="screen-ta-select" class="screen" aria-label="タイムアタック">
+      <header class="bar">
+        <button type="button" class="icon-btn" data-back="title" aria-label="タイトルへもどる">←</button>
+        <h2 class="bar-title">⏱️ タイムアタック</h2>
+        <button type="button" class="btn ghost ta-records-btn" id="btn-ta-records">📊 きろく</button>
+      </header>
+      <p class="ta-select-lead">何問 クリアできるかな？ むずかしさを えらぼう</p>
+      <div id="ta-level-list" class="level-list ta-level-list"></div>
+    </section>
+
+    <!-- タイムアタック：開始前 -->
+    <section id="screen-ta-intro" class="screen" aria-label="タイムアタックのルール">
+      <header class="bar">
+        <button type="button" class="icon-btn" data-back="ta-select" aria-label="むずかしさ選択へもどる">←</button>
+        <h2 class="bar-title">⏱️ タイムアタック</h2>
+        <span class="bar-right"></span>
+      </header>
+      <div class="collect-body">
+        <div id="ta-intro" class="ta-intro"></div>
+        <button type="button" id="btn-ta-start" class="btn primary big ta-go">スタート！</button>
+      </div>
+    </section>
+
+    <!-- タイムアタック：結果 -->
+    <section id="screen-ta-result" class="screen" aria-label="タイムアタックの結果">
+      <div class="collect-body ta-result-body">
+        <div id="ta-result" class="ta-result"></div>
+        <div class="ta-result-actions">
+          <button type="button" id="btn-ta-retry" class="btn primary big">もういちど</button>
+          <div class="result-sub">
+            <button type="button" id="btn-ta-to-select" class="btn secondary">むずかしさ選択へ</button>
+            <button type="button" id="btn-ta-to-title" class="btn ghost">タイトルへ</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- タイムアタック：記録 -->
+    <section id="screen-ta-records" class="screen" aria-label="タイムアタックの記録">
+      <header class="bar">
+        <button type="button" class="icon-btn" data-back="ta-select" aria-label="もどる">←</button>
+        <h2 class="bar-title ta-rec-bar">📊 タイムアタック きろく</h2>
+        <span class="bar-right"></span>
+      </header>
+      <div class="collect-body"><div id="ta-records"></div></div>
     </section>
 
     <!-- フルーツずかん -->
@@ -152,6 +201,8 @@
         </div>
         <div class="game-timer" aria-label="タイム">⏱ <span id="game-timer">0:00</span></div>
         <button type="button" id="btn-settings" class="icon-btn" aria-label="設定" aria-haspopup="dialog">⚙️</button>
+        <!-- タイムアタック中だけ：クリア数と次の称号 -->
+        <div id="ta-hud" class="ta-hud" hidden><span class="ta-hud-count"><b id="ta-clears">0</b>問クリア</span><span id="ta-title" class="ta-hud-title"></span><span id="ta-next" class="ta-hud-next"></span></div>
       </header>
       <div id="board-area" class="board-area"></div>
       <!-- 短いお知らせ（数字をこえた・ゴールで数字が合わない など）。盤面の上に重ねて表示する -->
@@ -180,12 +231,16 @@
       <!-- クリア結果 -->
       <div id="result" class="result-overlay" hidden>
         <div class="result-card" role="dialog" aria-labelledby="result-title">
-          <div id="result-fruit" class="result-fruit" aria-hidden="true">🍓</div>
+          <!-- タップすると別のフルーツに変えられる -->
+          <button type="button" id="result-fruit" class="result-fruit" aria-label="フルーツを かえる">🍓</button>
           <h2 id="result-title" class="result-title">クリア！</h2>
-          <div id="result-badge" class="result-badge"></div>
-          <p id="result-hint" class="result-hint"></p>
+          <div class="result-badges">
+            <span id="result-badge" class="result-badge first" hidden>🎉 初クリア</span>
+            <span id="result-star" class="result-badge star" hidden>★ ヒントなし</span>
+          </div>
+          <p id="result-hint" class="result-hint" hidden></p>
           <dl class="result-stats">
-            <div><dt>むずかしさ</dt><dd><span id="result-stars" class="stars"></span> <small id="result-size"></small></dd></div>
+            <div><dt class="sr-only">むずかしさ</dt><dd><span id="result-stars" class="stars"></span><small id="result-size"></small></dd></div>
             <div><dt>タイム</dt><dd id="result-time">0:00</dd></div>
           </dl>
           <div class="result-actions">
@@ -229,6 +284,20 @@
         <button type="button" id="btn-settings-close" class="btn primary">とじる</button>
         <!-- タイトル画面から開いたときだけ表示 -->
         <a id="link-portal" class="btn secondary portal-link" href="https://taka-t-p.github.io/math-app-portal/" hidden>KEC数学科ラボへ <span aria-hidden="true">↗</span></a>
+      </div>
+    </div>
+
+    <!-- タイムアタック：3・2・1 -->
+    <div id="ta-countdown" class="ta-countdown" hidden><span id="ta-count"></span></div>
+    <!-- タイムアタック：CLEAR! +1問／最終問題！／時間切れ -->
+    <div id="ta-flash" class="ta-flash" hidden aria-live="assertive"></div>
+    <!-- タイムアタック：途中でやめるかの確認（この間も時間は進む） -->
+    <div id="ta-quit" class="modal-overlay" hidden>
+      <div class="modal-card ta-quit-card" role="dialog" aria-modal="true" aria-labelledby="ta-quit-title">
+        <h2 id="ta-quit-title" class="modal-title">タイムアタックを やめる？</h2>
+        <p class="setting-note">やめると、今回の記録は のこらないよ。（時間は 止まらないよ）</p>
+        <button type="button" id="btn-ta-continue" class="btn primary">つづける</button>
+        <button type="button" id="btn-ta-quit" class="btn ghost">やめる</button>
       </div>
     </div>
 

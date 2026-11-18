@@ -19,6 +19,11 @@ import { HintSession } from './hint.js';
 import { HintPanel } from './hint-ui.js';
 import { createSettings } from './settings.js';
 import * as sound from './sound.js';
+import { TimeAttack, TA_STATE, formatRemaining } from './challenge.js';
+import { createChallengeStore } from './challenge-storage.js';
+import { COUNTDOWN_STEP_MS, CLEAR_FX_MS, TIMEUP_MS, LOW_TIME_SECONDS } from './challenge-config.js';
+import { titleFor, nextTitle } from './challenge-titles.js';
+import { renderTaSelect, renderTaIntro, renderTaResult, renderTaRecords } from './challenge-ui.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 
@@ -42,11 +47,19 @@ const state = {
   hint: null,         // HintSession
   tutorialData: null, // data/tutorial.json
   settings: createSettings(), // 効果音・マス数の表示（クリア記録とは別に保存）
+  // ---- タイムアタック（通常モードの記録・ステージの ★ には影響しない） ----
+  playMode: 'normal', // 'normal' | 'ta'
+  ta: null,           // TimeAttack（1 回の挑戦）
+  taLevel: 1,         // 選んでいるタイムアタックの難易度
+  taStore: createChallengeStore(), // fruitMaze.timeAttack.v1
+  taClock: null,      // 残り時間の表示更新（判定は Date.now と締め切りで行う）
+  taTimer: null,      // カウントダウン・演出のあとの処理
+  taBusy: false,      // 正解演出・時間切れ演出の間は盤面を操作しない
 };
 sound.setSoundEnabled(state.settings.get('sound'));
 
 // ---------------- 画面切り替え ----------------
-const screens = ['title', 'howto', 'select', 'stage', 'game', 'zukan', 'trophy'];
+const screens = ['title', 'howto', 'select', 'stage', 'game', 'zukan', 'trophy', 'ta-select', 'ta-intro', 'ta-result', 'ta-records'];
 function show(name) {
   // 図鑑を出るとき：見た「NEW!」は次から出さない
   if (name !== 'zukan' && $('#screen-zukan').classList.contains('active') && state.library) state.collection.markZukanSeen(unlockedNow());
@@ -67,6 +80,7 @@ $('#screen-title').addEventListener('click', (e) => {
   if (action === 'howto') openHowto();
   if (action === 'zukan') openZukan();
   if (action === 'trophy') openTrophy();
+  if (action === 'timeattack') openTaSelect();
 });
 
 // ---------------- あそびかた ----------------
@@ -197,14 +211,16 @@ function startRandom(level) {
 }
 
 function startPuzzle(puzzle) {
+  const ta = isTa();
   clearTimeout(state.resultTimer);
   state.level = puzzle.difficulty;
   state.puzzle = puzzle;
-  state.lastPuzzleId[puzzle.difficulty] = puzzle.id;
+  if (!ta) state.lastPuzzleId[puzzle.difficulty] = puzzle.id; // タイムアタックの出題は通常モードの「前回」に入れない
   state.stage = stageOf(puzzle);
-  state.game = new PuzzleGame(puzzle);
+  // タイムアタックでは数字をこえて進める（こえた数字は赤。GOAL で数字がぴったりのときだけクリア）
+  state.game = new PuzzleGame(puzzle, { allowClueOverflow: ta });
   state.memo = new MemoBoard(puzzle);   // 問題が変わったらメモは新しく
-  state.hint = new HintSession(puzzle);
+  state.hint = ta ? null : new HintSession(puzzle); // タイムアタックではヒントなし
   state.hintUsed = false;               // ステージを始めるたび（もういちど・次のステージを含む）にリセット
   closeHint();
   setMode('route');
@@ -212,7 +228,9 @@ function startPuzzle(puzzle) {
   state.stopwatch.reset();
   const d = DIFFICULTIES.find((x) => x.level === puzzle.difficulty);
   $('#game-stars').textContent = d.stars;
-  $('#game-size').textContent = `ステージ${state.stage}`; // 盤面サイズは★で分かるので、ステージ番号だけ
+  $('#game-size').textContent = ta ? `${puzzle.rows}×${puzzle.cols}` : `ステージ${state.stage}`; // 通常は盤面サイズは★で分かるので、ステージ番号だけ
+  $('#screen-game').classList.toggle('ta-mode', ta);
+  $('#ta-hud').hidden = !ta;
   hideResult();
   closeSettings();
   setMessage('');
@@ -220,6 +238,14 @@ function startPuzzle(puzzle) {
   controls.setEnabled(true);
   fitBoard();
   refresh();
+  if (ta) {
+    // タイムアタック：ストップウォッチは使わず、残り時間を表示する
+    state.stopwatch.reset();
+    stopTicker();
+    updateTaHud();
+    renderTaTimer();
+    return;
+  }
   // タイマーはステージが表示された瞬間から数える
   state.stopwatch.start();
   startTicker();
@@ -292,6 +318,7 @@ function renderHint(view) {
   state.renderer.showHint(view && view.highlight);
 }
 function openHint() {
+  if (isTa() || !state.hint) return; // タイムアタックではヒントは使えない
   if (!state.game || state.game.status === STATUS.CLEARED) return;
   state.hintUsed = true; // ヒントを開いたら「ヒントを使った」（はじめからやり直しても、このプレイでは使ったまま）
   hintPanel.show();
@@ -336,7 +363,7 @@ function handleResult(res) {
   const g = state.game;
   switch (res.type) {
     case MOVE.MOVED:
-      if (g.status === STATUS.CLEARED) return onCleared();
+      if (g.status === STATUS.CLEARED) return isTa() ? onTaSolved() : onCleared();
       if (g.status === STATUS.AT_GOAL) {
         sound.play('goalMiss');
         setMessage('数字が まだ そろっていないよ！ もどって 道を なおそう', 'warn');
@@ -395,13 +422,14 @@ function showResult(rec) {
   const d = DIFFICULTIES.find((x) => x.level === state.level);
   $('#result-stars').textContent = d.stars;
   $('#result-time').textContent = formatTime(state.stopwatch.elapsed());
-  const badge = $('#result-badge');
-  badge.textContent = rec.firstClear ? '🎉 はじめて クリア！' : `${rec.clearCount}回めの クリア`;
-  badge.classList.toggle('first', rec.firstClear);
-  // ヒントの使用：ステージ選択の ★ はヒントなしでクリアしたときだけ付く
+  // バッジ：「🎉 初クリア」「★ ヒントなし」を横にならべる（2 回め以降は回数を出さない）
+  $('#result-badge').hidden = !rec.firstClear;
+  $('#result-star').hidden = state.hintUsed;
+  $('.result-badges').hidden = !rec.firstClear && state.hintUsed;
+  // ヒントを使ったとき：ステージ選択の ★ はヒントなしでクリアしたときだけ付く
   const hintNote = $('#result-hint');
-  hintNote.textContent = state.hintUsed ? '💡 ヒントを使ったよ。ヒントなしでクリアすると ★ がつくよ' : '★ ヒントなしで クリア！';
-  hintNote.classList.toggle('star', !state.hintUsed);
+  hintNote.textContent = state.hintUsed ? '💡 ヒントなしでクリアすると ★ がつくよ' : '';
+  hintNote.hidden = !state.hintUsed;
   $('#result-fruit').textContent = state.fruit.emoji;
   $('#result-size').textContent = `ステージ${state.stage}・${state.puzzle.rows}×${state.puzzle.cols}`;
   const last = state.stage >= state.library.count(state.level);
@@ -422,7 +450,7 @@ function hideResult() {
 let ticker = null;
 function startTicker() { stopTicker(); ticker = setInterval(updateTimer, 250); }
 function stopTicker() { clearInterval(ticker); ticker = null; }
-function updateTimer() { $('#game-timer').textContent = formatTime(state.stopwatch.elapsed()); }
+function updateTimer() { if (!isTa()) $('#game-timer').textContent = formatTime(state.stopwatch.elapsed()); }
 
 // ボタン
 function undo() {
@@ -465,6 +493,25 @@ $('#btn-next').addEventListener('click', () => {
   openStage(state.level);
 });
 $('#btn-retry').addEventListener('click', () => { sound.play('tap'); startPuzzle(state.puzzle); });
+// クリア画面のフルーツをタップ：解放済みのフルーツを順に切り替える
+$('#result-fruit').addEventListener('click', () => {
+  const ids = unlockedNow();
+  if (ids.length <= 1) {
+    sound.play('tap');
+    showToast('ステージをクリアすると、ほかのフルーツも つかえるようになるよ');
+    return;
+  }
+  const order = FRUITS.map((f) => f.id).filter((id) => ids.includes(id));
+  const next = order[(order.indexOf(state.fruit.id) + 1) % order.length];
+  if (!selectFruit(next)) return;
+  sound.play('tap');
+  const el = $('#result-fruit');
+  el.textContent = state.fruit.emoji;
+  el.classList.remove('swap');
+  void el.offsetWidth;
+  el.classList.add('swap');
+  state.renderer?.setFruit(state.fruit);
+});
 $('#btn-to-select').addEventListener('click', () => { sound.play('tap'); hideResult(); openStage(state.level); });
 
 // 戻るボタン（各画面の左上）
@@ -472,10 +519,12 @@ document.addEventListener('click', (e) => {
   const back = e.target.closest('[data-back]');
   if (!back) return;
   sound.play('tap');
+  if (back.dataset.back === 'stage' && isTa()) { openTaQuit(); return; } // タイムアタック中は確認してから
   disarmReset();
   closeSettings();
   if (back.dataset.back === 'title') show('title');
   if (back.dataset.back === 'select') openSelect();
+  if (back.dataset.back === 'ta-select') openTaSelect();
   if (back.dataset.back === 'stage') { hideResult(); clearTimeout(state.resultTimer); openStage(state.level); }
 });
 
@@ -498,6 +547,7 @@ function renderSettings() {
 function openSettings() {
   // プレイ画面から開いたときだけ「はじめから」を出し、盤面を隠してタイマーを止める
   const inGame = $('#screen-game').classList.contains('active') && !!state.game;
+  if (inGame && isTa() && (!state.ta || !state.ta.isActive || state.taBusy)) return; // 終了・演出中は開かない
   if (inGame) closeHint();
   disarmReset();
   renderSettings();
@@ -505,7 +555,10 @@ function openSettings() {
   // タイトル画面から開いたときは「KEC数学科ラボへ」を出す
   $('#link-portal').hidden = !$('#screen-title').classList.contains('active');
   $('#settings').hidden = false;
-  if (inGame) {
+  if (inGame && isTa()) {
+    // タイムアタック：盤面は隠すが、時間は止まらない
+    $('#screen-game').classList.add('settings-open');
+  } else if (inGame) {
     $('#screen-game').classList.add('settings-open');
     state.stopwatch.pause();
     stopTicker();
@@ -544,7 +597,11 @@ $('#settings').addEventListener('click', (e) => {
   sound.play('tap');
   renderSettings();
 });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#settings').hidden) closeSettings(); });
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (!$('#settings').hidden) closeSettings();
+  else if (!$('#ta-quit').hidden) closeTaQuit();
+});
 
 // 入力
 const controls = new BoardControls($('#board-area'), {
@@ -555,7 +612,8 @@ const controls = new BoardControls($('#board-area'), {
   getMode: () => state.mode,
   getMemo: () => state.memo,
   onMemo: () => { sound.unlockAudio(); sound.play('tap'); refresh(); },
-  isBlocked: () => hintPanel.isOpen || !$('#settings').hidden, // ヒント・設定の表示中は盤面を操作しない
+  // ヒント・設定・やめる確認・タイムアタックの演出中は盤面を操作しない
+  isBlocked: () => hintPanel.isOpen || !$('#settings').hidden || !$('#ta-quit').hidden || state.taBusy,
   onBlocked: () => closeHint(),            // 盤面をタップしたらヒントを閉じるだけ
   onToggleMode: () => cycleMode(),         // M キー
 });
@@ -564,6 +622,229 @@ const controls = new BoardControls($('#board-area'), {
 const ro = new ResizeObserver(() => { fitBoard(); howto && howto.fit(); });
 ro.observe($('#board-area'));
 ro.observe($('#screen-howto'));
+
+// ---------------- タイムアタック ----------------
+// 進行と時間の判定は TimeAttack（challenge.js）。ここでは画面・演出・記録の保存をつなぐ。
+const isTa = () => state.playMode === 'ta';
+
+function openTaSelect() {
+  renderTaSelect($('#ta-level-list'), state.taStore);
+  show('ta-select');
+}
+$('#ta-level-list').addEventListener('click', (e) => {
+  const btn = e.target.closest('.ta-level-btn');
+  if (!btn) return;
+  sound.unlockAudio();
+  sound.play('tap');
+  state.taLevel = Number(btn.dataset.level);
+  renderTaIntro($('#ta-intro'), state.taLevel, state.taStore);
+  show('ta-intro');
+});
+$('#btn-ta-records').addEventListener('click', () => {
+  sound.play('tap');
+  renderTaRecords($('#ta-records'), state.taStore);
+  show('ta-records');
+});
+$('#btn-ta-start').addEventListener('click', () => { sound.unlockAudio(); sound.play('tap'); startTimeAttack(state.taLevel); });
+$('#btn-ta-retry').addEventListener('click', () => { sound.unlockAudio(); sound.play('tap'); startTimeAttack(state.taLevel); });
+$('#btn-ta-to-select').addEventListener('click', () => { sound.play('tap'); openTaSelect(); });
+$('#btn-ta-to-title').addEventListener('click', () => { sound.play('tap'); show('title'); });
+
+function startTimeAttack(level) {
+  exitTa();
+  const puzzles = state.library.list(level);
+  if (!puzzles.length) return openTaSelect();
+  state.taLevel = level;
+  state.ta = new TimeAttack({ level, puzzles });
+  state.playMode = 'ta';
+  state.ta.startCountdown();
+  // 3・2・1（この時間は制限時間に含めない）
+  const ov = $('#ta-countdown');
+  const num = $('#ta-count');
+  let n = 3;
+  ov.hidden = false;
+  const step = () => {
+    if (n === 0) {
+      ov.hidden = true;
+      loadTaPuzzle(state.ta.begin()); // ここから計測
+      startTaClock();
+      taFlash('スタート！', 'start', 600);
+      return;
+    }
+    num.textContent = String(n);
+    num.classList.remove('pop');
+    void num.offsetWidth;
+    num.classList.add('pop');
+    sound.play('tap');
+    n--;
+    state.taTimer = setTimeout(step, COUNTDOWN_STEP_MS);
+  };
+  step();
+}
+
+function loadTaPuzzle(puzzle) {
+  state.taBusy = false;
+  startPuzzle(puzzle);
+}
+
+/** 残り時間の表示を 200ms ごとに更新（判定は締め切りの時刻で行うので、更新が遅れても時間は延びない） */
+function startTaClock() {
+  stopTaClock();
+  state.taClock = setInterval(taTick, 200);
+  taTick();
+}
+function stopTaClock() { clearInterval(state.taClock); state.taClock = null; }
+function taTick() {
+  const ta = state.ta;
+  if (!ta || !isTa()) return stopTaClock();
+  const events = ta.update(Date.now());
+  if (events.includes('final')) onTaFinal();
+  if (events.includes('timeup')) return onTaTimeUp();
+  renderTaTimer();
+}
+// タブを切り替えて戻ってきたら、すぐに時刻を反映する
+document.addEventListener('visibilitychange', () => { if (!document.hidden && state.taClock) taTick(); });
+
+function renderTaTimer() {
+  const ta = state.ta;
+  if (!ta) return;
+  const box = $('.game-timer');
+  const el = $('#game-timer');
+  const final = ta.state === TA_STATE.FINAL || (ta.normalDeadline != null && ta.normalLeftMs(Date.now()) === 0);
+  if (final) {
+    el.textContent = '最終問題'; // ロスタイムの秒数は出さない
+    box.classList.add('ta-final');
+    box.classList.remove('ta-low');
+  } else {
+    const ms = ta.normalLeftMs(Date.now());
+    el.textContent = formatRemaining(ms);
+    box.classList.remove('ta-final');
+    box.classList.toggle('ta-low', ms <= LOW_TIME_SECONDS * 1000);
+  }
+  box.setAttribute('aria-label', final ? '最終問題' : `のこり時間 ${el.textContent}`);
+}
+
+function updateTaHud() {
+  const ta = state.ta;
+  if (!ta) return;
+  $('#ta-clears').textContent = String(ta.clears);
+  const t = titleFor(ta.level, ta.clears);
+  $('#ta-title').textContent = t ? `${t.icon} ${t.name}` : '';
+  $('#ta-title').hidden = !t;
+  const n = nextTitle(ta.level, ta.clears);
+  $('#ta-next').textContent = n ? (n.title.id === 'kaiden' ? `あと${n.remaining}問で 👑` : `次の称号まで あと${n.remaining}問`) : '';
+  $('#ta-next').hidden = !n;
+}
+
+let taFlashTimer = null;
+/** 「CLEAR! +1問」「最終問題！」「時間切れ」などを短く出す（盤面の操作はじゃましない） */
+function taFlash(text, kind, ms) {
+  const el = $('#ta-flash');
+  el.textContent = text;
+  el.className = `ta-flash ${kind}`;
+  el.hidden = false;
+  void el.offsetWidth;
+  el.classList.add('show');
+  clearTimeout(taFlashTimer);
+  taFlashTimer = setTimeout(() => { el.hidden = true; }, ms);
+}
+
+/** 通常の制限時間が終わった：いまの問題がそのまま「最終問題」になる（ルート・メモはそのまま） */
+function onTaFinal() {
+  renderTaTimer();
+  if (!state.taBusy) taFlash('最終問題！', 'final', 1100);
+  sound.play('goalMiss');
+}
+
+/** いまの問題を正解した */
+function onTaSolved() {
+  const ta = state.ta;
+  const r = ta.solved(Date.now()); // 正解した時刻で判定
+  if (r.type === 'ignored') return;
+  state.taBusy = true;
+  controls.setEnabled(false);
+  refresh();
+  sound.play('clear');
+  state.renderer.celebrate();
+  if (r.type === 'next') {
+    updateTaHud();
+    taFlash('CLEAR! +1問', 'clear', CLEAR_FX_MS);
+    state.taTimer = setTimeout(() => {
+      if (state.ta !== ta || !ta.isActive) return; // 演出中に時間切れ・中断になったとき
+      loadTaPuzzle(r.puzzle);
+      if (r.final) onTaFinal(); // ちょうど 0 秒で正解：次の問題が最終問題
+    }, CLEAR_FX_MS);
+  } else if (r.reason === 'final-cleared') {
+    // 最終問題をロスタイム内にクリア：1 問加算して結果へ（時間切れは出さない）
+    stopTaClock();
+    updateTaHud();
+    taFlash('CLEAR! +1問', 'clear', CLEAR_FX_MS + 300);
+    state.taTimer = setTimeout(showTaResults, CLEAR_FX_MS + 300);
+  } else {
+    onTaTimeUp(); // ロスタイムを過ぎてからの正解は数えない
+  }
+}
+
+/** 時間切れ：操作を止めて「時間切れ」を約 1 秒見せてから結果へ */
+function onTaTimeUp() {
+  stopTaClock();
+  clearTimeout(state.taTimer);
+  state.taBusy = true;
+  controls.setEnabled(false);
+  closeSettings();
+  $('#ta-quit').hidden = true;
+  renderTaTimer();
+  taFlash('時間切れ', 'timeup', TIMEUP_MS);
+  sound.play('goalMiss');
+  state.taTimer = setTimeout(showTaResults, TIMEUP_MS);
+}
+
+function showTaResults() {
+  const ta = state.ta;
+  if (!ta || ta.state !== TA_STATE.FINISHED || ta.endReason === 'aborted') return; // 結果の表示・記録は 1 回だけ
+  const result = state.taStore.recordResult(ta.level, ta.clears, new Date());
+  ta.markResults();
+  renderTaResult($('#ta-result'), { level: ta.level, clears: ta.clears, result, reason: ta.endReason });
+  exitTa();
+  show('ta-result');
+  sound.play(result.newRecord || result.titleUp ? 'reward' : 'tap');
+  $('#btn-ta-retry').focus({ preventScroll: true });
+}
+
+/** タイムアタックの表示・時計を片付けて、通常モードに戻す */
+function exitTa() {
+  stopTaClock();
+  clearTimeout(state.taTimer);
+  clearTimeout(taFlashTimer);
+  state.playMode = 'normal';
+  state.taBusy = false;
+  $('#screen-game').classList.remove('ta-mode');
+  $('#ta-hud').hidden = true;
+  $('.game-timer').classList.remove('ta-low', 'ta-final');
+  $('.game-timer').setAttribute('aria-label', 'タイム');
+  $('#ta-countdown').hidden = true;
+  $('#ta-flash').hidden = true;
+  $('#ta-quit').hidden = true;
+  closeSettings();
+  controls.setEnabled(true);
+}
+
+// ---- 途中でやめる（確認中も時間は進む） ----
+function openTaQuit() {
+  if (!state.ta || !state.ta.isActive || state.taBusy) return;
+  closeSettings();
+  $('#ta-quit').hidden = false;
+  $('#btn-ta-continue').focus({ preventScroll: true });
+}
+function closeTaQuit() { $('#ta-quit').hidden = true; }
+$('#btn-ta-continue').addEventListener('click', () => { sound.play('tap'); closeTaQuit(); });
+$('#btn-ta-quit').addEventListener('click', () => {
+  sound.play('tap');
+  if (state.ta) state.ta.abort(); // 途中でやめた挑戦は記録しない・回数にも数えない
+  exitTa();
+  openTaSelect();
+});
+$('#ta-quit').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeTaQuit(); });
 
 // ---------------- フルーツコレクション・トロフィー ----------------
 const totalOf = (level) => state.library.count(level);
@@ -690,4 +971,4 @@ async function boot() {
 boot();
 
 // デバッグ・テスト用（ブラウザのコンソールから参照できる）
-window.fruitMaze = { state, get howto() { return howto; }, currentStats, unlockedNow };
+window.fruitMaze = { state, get howto() { return howto; }, currentStats, unlockedNow, taTick };

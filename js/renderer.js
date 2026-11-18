@@ -38,6 +38,16 @@ export class BoardRenderer {
     this.board.classList.toggle('clue-target', this.clueStyle === 'target');
   }
 
+  /** 盤面のフルーツだけを差し替える（ルート・メモ・数字はそのまま） */
+  setFruit(fruit) {
+    this.fruit = fruit;
+    const board = this.host.querySelector('.board');
+    if (!board) return;
+    board.style.setProperty('--fruit-color', fruit.color);
+    board.style.setProperty('--fruit-light', fruit.light);
+    board.querySelectorAll('.fruit-emoji').forEach((el) => { el.textContent = fruit.emoji; });
+  }
+
   _build() {
     const { rows, cols, grid, start, goal } = this.puzzle;
     const board = document.createElement('div');
@@ -195,10 +205,11 @@ export class BoardRenderer {
     if (this.guide) this._drawGuide();
   }
 
-  _setClue(el, { count, clue, done }) {
+  _setClue(el, { count, clue, done, over = false }) {
     const html = `<span class="clue-inner"><span class="count">${count}</span><span class="slash">/</span><span class="target">${clue}</span></span>`;
     if (el._html !== html) { el.innerHTML = html; el._html = html; }
     el.classList.toggle('done', done);
+    el.classList.toggle('over', over); // 数字をこえている（タイムアタックでだけ起こる）：赤く表示するだけ
   }
 
   /** 数字の超過：該当する行・列の数字を赤く点滅させる */

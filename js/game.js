@@ -16,8 +16,15 @@ export const MOVE = Object.freeze({
 
 export class PuzzleGame {
   /** @param {object} puzzle  puzzles.json の 1 問分 */
-  constructor(puzzle) {
+  /**
+   * @param {object} puzzle  puzzles.json の 1 問分
+   * @param {{allowClueOverflow?: boolean}} [opt]
+   *   allowClueOverflow … 行・列の数字をこえる移動を許すか（タイムアタック用。既定 false＝通常モード）。
+   *   許しても、クリア判定（すべての数字がぴったり一致して GOAL）は同じ。
+   */
+  constructor(puzzle, { allowClueOverflow = false } = {}) {
     this.puzzle = puzzle;
+    this.allowClueOverflow = allowClueOverflow;
     this.rows = puzzle.rows;
     this.cols = puzzle.cols;
     this.reset();
@@ -50,12 +57,12 @@ export class PuzzleGame {
   rowState(r) {
     const clue = this.puzzle.rowClues[r];
     const count = this.rowCounts[r];
-    return { count, clue, done: count === clue };
+    return { count, clue, done: count === clue, over: count > clue };
   }
   colState(c) {
     const clue = this.puzzle.colClues[c];
     const count = this.colCounts[c];
-    return { count, clue, done: count === clue };
+    return { count, clue, done: count === clue, over: count > clue };
   }
 
   /** すべての行・列の数字が一致しているか */
@@ -80,7 +87,7 @@ export class PuzzleGame {
     if (this.isVisited(r, c)) return { type: MOVE.IGNORED, reason: 'visited' };
     const overRow = this.rowCounts[r] + 1 > this.puzzle.rowClues[r];
     const overCol = this.colCounts[c] + 1 > this.puzzle.colClues[c];
-    if (overRow || overCol) return { type: MOVE.BLOCKED, reason: 'overflow', overRow, overCol };
+    if ((overRow || overCol) && !this.allowClueOverflow) return { type: MOVE.BLOCKED, reason: 'overflow', overRow, overCol };
     return { type: MOVE.MOVED };
   }
 
