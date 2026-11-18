@@ -6,6 +6,27 @@
 export const MEMO = Object.freeze({ NONE: 0, ON: 1, OFF: 2 });
 const NAME = ['none', 'on', 'off'];
 
+/**
+ * プレイ画面の操作モード。1 つのボタンを押すたびに この順で切り替わる。
+ *   route      … ルートをつなぐ
+ *   memo-on    … ○ を付ける（○ のマスをもう一度タップすると消える）
+ *   memo-off   … × を付ける（× のマスをもう一度タップすると消える）
+ *   memo-erase … ○・× を消す
+ */
+export const PLAY_MODES = ['route', 'memo-on', 'memo-off', 'memo-erase'];
+export const nextMode = (mode) => PLAY_MODES[(PLAY_MODES.indexOf(mode) + 1) % PLAY_MODES.length];
+
+/** モードごとのメモの付け方（beginStroke に渡す）。route は null */
+export function memoToolForMode(mode) {
+  switch (mode) {
+    case 'memo-on': return { value: MEMO.ON, toggle: true };
+    case 'memo-off': return { value: MEMO.OFF, toggle: true };
+    case 'memo-erase': return { value: MEMO.NONE, toggle: false };
+    case 'memo': return {};        // 切り替え（なし → ○ → × → なし）
+    default: return null;
+  }
+}
+
 export class MemoBoard {
   /**
    * @param {object} puzzle
@@ -73,14 +94,23 @@ export class MemoBoard {
   // ---- なぞって連続でメモ ----
   // 最初に触れた（編集できる）マスで決まった値を、なぞった他のマスにも付ける。
   // 1 回の操作で同じマスを何度通っても、変更は 1 回だけ。
-  beginStroke() { this.stroke = { value: null, touched: new Set() }; }
+  /**
+   * @param {{value?: number, toggle?: boolean}} [tool]
+   *   value を省略 … 最初のマスの「次の値」（なし → ○ → × → なし）
+   *   value を指定 … その値を付ける。toggle が true で、最初のマスがすでにその値なら「消す」操作になる
+   */
+  beginStroke(tool = {}) { this.stroke = { value: null, tool: tool || {}, touched: new Set() }; }
   /** なぞったマスに適用。変わったら新しい値、変わらなければ null */
   strokeAt(r, c, game = null) {
     if (!this.stroke) this.beginStroke();
     const key = r * this.cols + c;
     if (this.stroke.touched.has(key) || !this.canEdit(r, c, game)) return null;
     this.stroke.touched.add(key);
-    if (this.stroke.value === null) this.stroke.value = this.nextValue(r, c);
+    if (this.stroke.value === null) {
+      const { value, toggle } = this.stroke.tool;
+      if (value === undefined) this.stroke.value = this.nextValue(r, c);
+      else this.stroke.value = toggle && this.get(r, c) === value ? MEMO.NONE : value;
+    }
     return this.set(r, c, this.stroke.value, game) ? this.stroke.value : null;
   }
   endStroke() { this.stroke = null; }

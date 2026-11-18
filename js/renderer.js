@@ -18,8 +18,10 @@ export class BoardRenderer {
    * @param {HTMLElement} host  盤面を入れる要素
    * @param {object} puzzle
    * @param {{emoji: string, color: string, light: string}} fruit
+   * @param {{clueStyle?: 'target'|'fraction'}} [opt]
+   *   clueStyle … 行・列の数字の表示。'target'＝「3」のように指定数だけを大きく（既定）、'fraction'＝「1/3」
    */
-  constructor(host, puzzle, fruit) {
+  constructor(host, puzzle, fruit, { clueStyle = 'target' } = {}) {
     this.host = host;
     this.puzzle = puzzle;
     this.fruit = fruit;
@@ -27,6 +29,13 @@ export class BoardRenderer {
     this.rowClueEls = [];
     this.colClueEls = [];
     this._build();
+    this.setClueStyle(clueStyle);
+  }
+
+  /** 行・列の数字の表示を切り替える（'target' ⇔ 'fraction'） */
+  setClueStyle(style) {
+    this.clueStyle = style === 'fraction' ? 'fraction' : 'target';
+    this.board.classList.toggle('clue-target', this.clueStyle === 'target');
   }
 
   _build() {
@@ -77,8 +86,9 @@ export class BoardRenderer {
           mark.setAttribute('aria-hidden', 'true');
           el.appendChild(mark);
         }
-        if (r === start.row && c === start.col) el.classList.add('start');
-        if (r === goal.row && c === goal.col) el.classList.add('goal');
+        // START・GOAL は必ず通るので、はじめから ○ を表示する（メモとしては編集できない）
+        if (r === start.row && c === start.col) el.classList.add('start', 'end-circle');
+        if (r === goal.row && c === goal.col) el.classList.add('goal', 'end-circle');
         place(el, r + 3, c + 2);
         rowEls.push(el);
       }

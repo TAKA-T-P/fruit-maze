@@ -128,3 +128,63 @@ test('あそびかた用：切り替え順と編集できるマスを限定で�
   assert.equal(m.tap(2, 3), MEMO.NONE, '○ ↔ なし だけ');
   assert.equal(m.tap(3, 3), null, '2 行目以外は不可');
 });
+
+// ---------- 操作モード（1 つのボタンで切り替え）----------
+import { PLAY_MODES, nextMode, memoToolForMode } from '../js/memo.js';
+import { createSettings, SETTINGS_KEY, DEFAULT_SETTINGS } from '../js/settings.js';
+
+test('操作モードは ルート → ○つけ → ×つけ → 消す → ルート の順に切り替わる', () => {
+  assert.deepEqual(PLAY_MODES, ['route', 'memo-on', 'memo-off', 'memo-erase']);
+  let m = 'route';
+  const seen = [];
+  for (let i = 0; i < 5; i++) { seen.push(m); m = nextMode(m); }
+  assert.deepEqual(seen, ['route', 'memo-on', 'memo-off', 'memo-erase', 'route']);
+  assert.equal(memoToolForMode('route'), null, 'ルートモードではメモを付けない');
+});
+
+test('○つけ：タップで ○、○ のマスをもう一度タップすると消える。なぞると連続で ○', () => {
+  const m = new MemoBoard(P);
+  const tap = (r, c, mode) => { m.beginStroke(memoToolForMode(mode)); const v = m.strokeAt(r, c); m.endStroke(); return v; };
+  assert.equal(tap(2, 3, 'memo-on'), MEMO.ON);
+  assert.equal(tap(2, 3, 'memo-on'), MEMO.NONE, 'もう一度で消える');
+  m.set(3, 3, MEMO.OFF);
+  assert.equal(tap(3, 3, 'memo-on'), MEMO.ON, '× のマスも ○ に');
+  m.clear();
+  m.beginStroke(memoToolForMode('memo-on'));
+  [[1, 3], [2, 3], [3, 3], [2, 3]].forEach(([r, c]) => m.strokeAt(r, c));
+  m.endStroke();
+  assert.deepEqual(m.entries().map((e) => e.value), ['on', 'on', 'on']);
+});
+
+test('×つけ・消す：× を付ける、○・× を消す', () => {
+  const m = new MemoBoard(P);
+  const tap = (r, c, mode) => { m.beginStroke(memoToolForMode(mode)); const v = m.strokeAt(r, c); m.endStroke(); return v; };
+  assert.equal(tap(2, 3, 'memo-off'), MEMO.OFF);
+  assert.equal(tap(2, 3, 'memo-off'), MEMO.NONE);
+  m.set(1, 3, MEMO.ON); m.set(2, 3, MEMO.OFF);
+  m.beginStroke(memoToolForMode('memo-erase'));
+  m.strokeAt(1, 3); m.strokeAt(2, 3); m.strokeAt(3, 3);
+  m.endStroke();
+  assert.equal(m.hasAny(), false);
+  assert.equal(tap(0, 0, 'memo-on'), null, 'START には付けられない（はじめから ○ の表示だけ）');
+  assert.equal(tap(3, 0, 'memo-off'), null, 'GOAL にも付けられない');
+});
+
+// ---------- 設定 ----------
+function mem() { const m = new Map(); return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, String(v)) }; }
+
+test('設定：既定は 効果音ON・数字「3」表示。変更は保存され、読み込み直しても残る', () => {
+  const b = mem();
+  const s = createSettings(b);
+  assert.deepEqual(s.all(), { ...DEFAULT_SETTINGS });
+  assert.equal(s.get('clueStyle'), 'target');
+  assert.equal(s.set('clueStyle', 'fraction'), true);
+  assert.equal(s.set('sound', false), true);
+  assert.equal(s.set('clueStyle', 'xxx'), false, '不正な値は受け付けない');
+  const s2 = createSettings(b);
+  assert.equal(s2.get('clueStyle'), 'fraction');
+  assert.equal(s2.get('sound'), false);
+  b.setItem(SETTINGS_KEY, '{broken');
+  assert.deepEqual(createSettings(b).all(), { ...DEFAULT_SETTINGS }, '壊れた保存データは既定値に');
+  assert.deepEqual(createSettings(null).all(), { ...DEFAULT_SETTINGS }, '保存できない環境でも動く');
+});

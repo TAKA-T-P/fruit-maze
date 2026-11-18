@@ -292,3 +292,13 @@ test('壊れた保存データ・保存不可の環境でも動く', () => {
   const s3 = createStore(throwing);
   assert.equal(s3.recordClear('y').firstClear, true);
 });
+
+test('ステージ番号：各難易度の問題は ID 順に並び、ステージ1〜50 が easy-001〜050 などに対応する', () => {
+  const lib = new PuzzleLibrary(DATA);
+  const prefix = { 1: 'easy', 2: 'normal', 3: 'hard', 4: 'expert', 5: 'master' };
+  for (const level of [1, 2, 3, 4, 5]) {
+    const list = lib.list(level);
+    assert.equal(list.length, 50);
+    list.forEach((p, i) => assert.equal(p.id, `${prefix[level]}-${String(i + 1).padStart(3, '0')}`, `★${level} ステージ${i + 1}`));
+  }
+});

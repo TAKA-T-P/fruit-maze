@@ -7,7 +7,7 @@
 import { PuzzleGame, STATUS, MOVE } from './game.js';
 import { BoardRenderer } from './renderer.js';
 import { BoardControls } from './controls.js';
-import { MemoBoard, MEMO } from './memo.js';
+import { MemoBoard, MEMO, nextMode } from './memo.js';
 import { HintSession, lineName } from './hint.js';
 import { HintPanel } from './hint-ui.js';
 import { deduce } from './deduce.js';
@@ -27,15 +27,25 @@ function firstLineGroup(puzzle, rule) {
 
 const has = (cells, r, c) => cells.some(([a, b]) => a === r && b === c);
 
+// 操作モードのボタン表示（プレイ画面と同じ：ルート → ○つけ → ×つけ → 消す）
+const MODE_VIEW = {
+  'route': { icon: '🍓', label: 'ルート' },
+  'memo-on': { icon: '✏️', label: '○つけ' },
+  'memo-off': { icon: '✏️', label: '×つけ' },
+  'memo-erase': { icon: '🧽', label: '消す' },
+};
+
 export class HowTo {
   /**
    * @param {HTMLElement} root     #screen-howto
    * @param {{pages: Record<string, object>}} data  data/tutorial.json
    * @param {object} fruit
+   * @param {{getClueStyle?: () => 'target'|'fraction'}} [opt]  行・列の数字の表示（設定に合わせる）
    */
-  constructor(root, data, fruit) {
+  constructor(root, data, fruit, { getClueStyle = () => 'target' } = {}) {
     this.root = root;
     this.fruit = fruit;
+    this.getClueStyle = getClueStyle;
     const P = data.pages || {};
     this.puzzles = { route: P.route, deduce: P.deduce || P.route, memo: P.memo || P.route, hint: P.hint || P.route, challenge: P.challenge || P.route };
     this.boardHost = root.querySelector('.howto-board');
@@ -69,14 +79,11 @@ export class HowTo {
     });
 
     this.toolsEl.addEventListener('click', (e) => {
-      const m = e.target.closest('.mode-btn');
-      if (m && !m.disabled) { sound.play('tap'); this._setMode(m.dataset.mode); return; }
       const t = e.target.closest('[data-tool]');
       if (!t || t.disabled) return;
       sound.play('tap');
-      if (t.dataset.tool === 'undo') this._undo();
+      if (t.dataset.tool === 'mode') this._setMode(nextMode(this.mode));
       if (t.dataset.tool === 'reset') { this.game.reset(); this.memo.clear(); this.page.onReset?.(); this.controls.setEnabled(true); this.renderer.clearFx(); this.refresh(); }
-      if (t.dataset.tool === 'clear-memo') { this.memo.clear(); this.refresh(); }
       if (t.dataset.tool === 'hint') this._openHint();
     });
 
@@ -106,21 +113,23 @@ export class HowTo {
         puzzle: R, interactive: false, tools: [],
         text: `右の数字は、その<b>行（よこ）</b>で通るフルーツの数。上の数字は、その<b>列（たて）</b>で通る数だよ。`,
         setup: () => this.renderer.showHint({ lines: [{ kind: 'row', index: bigRow }], clues: [{ kind: 'row', index: bigRow }] }),
-        task: () => `黄色の行の数字は「${R.rowClues[bigRow]}」。この行では <b>${R.rowClues[bigRow]}つ</b> のフルーツを通るよ！<br><small>「0/${R.rowClues[bigRow]}」の左は、今までに通った数だよ。</small>`,
+        task: () => `黄色の行の数字は「${R.rowClues[bigRow]}」。この行では <b>${R.rowClues[bigRow]}つ</b> のフルーツを通るよ！<br><small>${this.getClueStyle() === 'fraction'
+          ? `「0/${R.rowClues[bigRow]}」の左は、今までに通った数だよ。`
+          : '通る数がそろうと、数字が緑になるよ。START と GOAL の ○ は「かならず通る」しるしだよ。'}</small>`,
       },
       {
         title: '② ルートをつなごう',
-        puzzle: R, tools: ['undo', 'reset'],
-        text: '<b>START</b> から指でなぞって、<b>GOAL</b> までつないでみよう！ となりのフルーツをタップしても進めるよ。',
+        puzzle: R, tools: ['reset'],
+        text: '<b>START</b> から指でなぞって、<b>GOAL</b> までつないでみよう！ まちがえたら、ひとつ前のフルーツをタップするともどれるよ。',
         task: () => {
           if (this.game.status === STATUS.CLEARED) return '<span class="ok">✓ できた！ すべての数字がそろったね</span>';
-          if (this.game.status === STATUS.AT_GOAL) return '数字がそろっていないよ。「もどる」で道をなおそう';
+          if (this.game.status === STATUS.AT_GOAL) return '数字がそろっていないよ。ひとつ前のフルーツをタップして、道をなおそう';
           return 'すべての数字をそろえて GOAL まで行こう';
         },
       },
       {
         title: '③ 通れない道',
-        puzzle: R, tools: ['undo', 'reset'],
+        puzzle: R, tools: ['reset'],
         text: 'わざと まちがえてみよう！ 下の4つをためすと ✓ が付くよ。',
         setup: () => { this.tried = new Set(); this.flash = ''; },
         onResult: (res) => {
@@ -148,8 +157,8 @@ export class HowTo {
       },
       {
         title: '④ 数字から推理しよう',
-        puzzle: pz.deduce, tools: [], mode: 'memo',
-        memo: allLine ? { cycle: [MEMO.NONE, MEMO.ON], filter: (r, c) => has(allLine.cells, r, c) } : {},
+        puzzle: pz.deduce, tools: [], mode: 'memo-on',
+        memo: allLine ? { filter: (r, c) => has(allLine.cells, r, c) } : {},
         text: allLine
           ? `${lineName(allLine.line)}には、フルーツが${allLine.cells.length}個あって、数字も${allLine.clue}。ということは……全部通るね！`
           : '数字とフルーツの数をくらべてみよう。',
@@ -163,38 +172,38 @@ export class HowTo {
       },
       {
         title: '⑤ 推理メモを使おう',
-        puzzle: pz.memo, tools: ['mode', 'clear-memo'],
+        puzzle: pz.memo, tools: ['mode'],
         text: zeroLine
-          ? `${lineName(zeroLine.line)}の数字は0。だから、どのフルーツも通らないね。「✏️ メモ」に切りかえて、×を付けよう！`
-          : '「✏️ メモ」に切りかえて、○や×を付けてみよう。',
+          ? `${lineName(zeroLine.line)}の数字は0。だから、どのフルーツも通らないね。下のボタンで「×つけ」にして、×を付けよう！`
+          : '下のボタンで「○つけ」「×つけ」にして、メモを付けてみよう。',
         setup: () => zeroLine && this.renderer.showHint({ lines: [zeroLine.line], clues: [zeroLine.line] }),
         task: () => {
           if (!zeroLine) return '';
           const n = zeroLine.cells.filter(([r, c]) => this.memo.get(r, c) === MEMO.OFF).length;
           if (n === zeroLine.cells.length) return '<span class="ok">✓ できた！ メモはルートとは別だから、あとで消すこともできるよ</span>';
-          if (this.mode === 'route') return '下の「✏️ メモ」を押してね';
-          return `マスをタップするたびに ○ → × → なし と変わるよ（× ${n} / ${zeroLine.cells.length}）`;
+          if (this.mode !== 'memo-off') return 'ボタンを押すたびに ルート → ○つけ → ×つけ → 消す と変わるよ。「×つけ」にしてね';
+          return `フルーツをタップして × を付けよう。なぞると続けて付けられるよ（× ${n} / ${zeroLine.cells.length}）`;
         },
       },
       {
         title: '⑥ ヒントを使おう',
-        puzzle: pz.hint, tools: ['hint', 'undo'],
-        text: 'こまったら「💡 ヒント」を押そう。「もっとヒント」で、ヒント1 → 2 → 3 とだんだんくわしくなるよ。',
+        puzzle: pz.hint, tools: ['hint'],
+        text: 'こまったら「💡 ヒント」を押そう。「次へ」で、ヒント1 → 2 → 3 とだんだんくわしくなるよ。',
         setup: () => { this.maxHintLevel = 0; },
         onHint: (view) => { if (view && view.kind !== 'none') this.maxHintLevel = Math.max(this.maxHintLevel, view.level); },
         task: () => {
           if (this.maxHintLevel >= 3) return '<span class="ok">✓ ヒント3まで見られたね！ ヒントは道やメモを勝手に変えないよ。自分で進めてみよう</span>';
-          if (this.maxHintLevel > 0) return `ヒント${this.maxHintLevel}まで見たよ。「もっとヒント」を押してみよう`;
+          if (this.maxHintLevel > 0) return `ヒント${this.maxHintLevel}まで見たよ。「次へ」を押してみよう`;
           return '下の「💡 ヒント」を押してみよう';
         },
       },
       {
         title: '⑦ ミニチャレンジ',
-        puzzle: pz.challenge, tools: ['mode', 'hint', 'undo', 'reset', 'clear-memo'],
+        puzzle: pz.challenge, tools: ['mode', 'hint', 'reset'],
         text: 'さいごに 4×4 の問題を解いてみよう！ メモやヒントも使えるよ。',
         task: () => {
           if (this.game.status === STATUS.CLEARED) return '<span class="ok big">🎉 じゅんびOK！ フルーツめいろに挑戦しよう！</span>';
-          if (this.game.status === STATUS.AT_GOAL) return '数字がそろっていないよ。「もどる」で道をなおそう';
+          if (this.game.status === STATUS.AT_GOAL) return '数字がそろっていないよ。ひとつ前のフルーツをタップして、道をなおそう';
           return 'STARTからGOALまで、数字をそろえてつなごう';
         },
       },
@@ -221,7 +230,7 @@ export class HowTo {
     this.game = new PuzzleGame(puzzle);
     this.memo = new MemoBoard(puzzle, page.memo || {});
     this.hint = new HintSession(puzzle);
-    this.renderer = new BoardRenderer(this.boardHost, puzzle, this.fruit);
+    this.renderer = new BoardRenderer(this.boardHost, puzzle, this.fruit, { clueStyle: this.getClueStyle() });
     this.renderer.board.classList.toggle('static', page.interactive === false);
     this.controls.setEnabled(page.interactive !== false);
     for (const el of this.toolsEl.querySelectorAll('[data-tool]')) el.hidden = !(page.tools || []).includes(el.dataset.tool);
@@ -237,10 +246,9 @@ export class HowTo {
     const cleared = this.game.status === STATUS.CLEARED;
     this.renderer.update(this.game, this.memo);
     const tool = (name) => this.toolsEl.querySelector(`[data-tool="${name}"]`);
-    tool('undo').disabled = this.game.route.length <= 1 || cleared;
     tool('reset').disabled = this.game.route.length <= 1 && !this.memo.hasAny();
-    tool('clear-memo').disabled = !this.memo.hasAny() || cleared;
     tool('hint').disabled = cleared;
+    tool('mode').disabled = cleared;
     this.taskEl.innerHTML = this.page.task ? this.page.task() : '';
   }
 
@@ -274,10 +282,13 @@ export class HowTo {
 
   _setMode(mode, refresh = true) {
     this.mode = mode;
-    this.toolsEl.querySelectorAll('.mode-btn').forEach((b) => {
-      b.classList.toggle('on', b.dataset.mode === mode);
-      b.setAttribute('aria-pressed', String(b.dataset.mode === mode));
-    });
+    const btn = this.toolsEl.querySelector('[data-tool="mode"]');
+    const v = MODE_VIEW[mode] || MODE_VIEW.route;
+    btn.dataset.mode = mode;
+    btn.querySelector('.mode-icon').textContent = v.icon;
+    btn.querySelector('.mode-label').textContent = v.label;
+    btn.setAttribute('aria-label', `操作モード：${v.label}（押すと切り替え）`);
+    btn.querySelectorAll('.mode-dots i').forEach((d, i) => d.classList.toggle('on', i === Object.keys(MODE_VIEW).indexOf(mode)));
     if (refresh && this.page) this.refresh();
   }
 

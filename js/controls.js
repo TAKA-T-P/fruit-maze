@@ -1,5 +1,6 @@
 // 入力処理：タップ・ドラッグ（Pointer Events でマウス／タッチ／ペンを共通処理）・キーボード
 import { MOVE } from './game.js';
+import { memoToolForMode } from './memo.js';
 
 const DRAG_TOLERANCE = 0.42; // ドラッグ中はマスの中心付近に入ったときだけ反応（角での斜め誤判定を防ぐ）
 const TAP_TOLERANCE = 0.5;
@@ -13,7 +14,7 @@ export class BoardControls {
    * @param {() => import('./renderer.js').BoardRenderer} opt.getRenderer
    * @param {(result: object, source: 'tap'|'drag'|'key') => void} opt.onResult  1 回の操作結果ごとに呼ばれる
    * @param {() => void} [opt.onUndoKey]
-   * @param {() => 'route'|'memo'} [opt.getMode]           操作モード（既定：ルート）
+   * @param {() => string} [opt.getMode]  操作モード：'route'（既定）／'memo-on'／'memo-off'／'memo-erase'／'memo'（切り替え）
    * @param {() => import('./memo.js').MemoBoard} [opt.getMemo]
    * @param {(cell: {row:number,col:number}, value: number) => void} [opt.onMemo]  メモが変わったとき
    * @param {() => boolean} [opt.isBlocked]                 true の間は盤面の操作を受け付けない（ヒント表示中など）
@@ -68,11 +69,12 @@ export class BoardControls {
     try { this.surface.setPointerCapture(e.pointerId); } catch { /* 古いブラウザ */ }
     const cell = renderer.cellFromPoint(e.clientX, e.clientY, TAP_TOLERANCE);
     this.lastCellKey = cell ? `${cell.row},${cell.col}` : null;
-    if (this.getMode() === 'memo') {
-      // メモ：最初に触れたマスで決まった値を、なぞったマスにも付ける
+    const tool = memoToolForMode(this.getMode());
+    if (tool) {
+      // メモ（○つけ・×つけ・消す）：最初に触れたマスで決まった値を、なぞったマスにも付ける
       const memo = this.getMemo();
       if (!memo) return;
-      memo.beginStroke();
+      memo.beginStroke(tool);
       this.memoStroke = true;
       if (cell) this._memoAt(cell);
       return;
