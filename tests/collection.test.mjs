@@ -180,3 +180,34 @@ test('コレクションの保存は、クリア記録・設定とは別のキ�
   assert.deepEqual([...backend._m.keys()].sort(), ['fruitMaze.collection.v1', 'fruitMaze.save.v1']);
   assert.ok(createStore(backend).isCleared('easy-001'));
 });
+
+// ---- 「ランダム」 ----
+import { pickRandomFruit, RANDOM_FRUIT_ID } from '../js/collection.js';
+
+test('ランダム：選べて保存される。ほかのフルーツを選ぶと解除', () => {
+  const backend = mem();
+  const col = createCollectionStore(backend);
+  const open = ['strawberry', 'apple', 'banana'];
+  assert.equal(col.isRandom(), false);
+  assert.equal(col.select(RANDOM_FRUIT_ID, open), true);
+  assert.equal(col.isRandom(), true);
+  assert.equal(createCollectionStore(backend).isRandom(), true, '再読み込み後も残る');
+  assert.equal(col.select('apple', open), true);
+  assert.equal(col.isRandom(), false);
+  assert.equal(col.selectedFruit(open).id, 'apple');
+});
+
+test('ランダム：ゲットしたフルーツだけから選び、2 種類以上なら直前のフルーツは避ける', () => {
+  const open = ['strawberry', 'apple', 'banana'];
+  const seen = new Set();
+  for (let i = 0; i < 300; i++) {
+    const f = pickRandomFruit(open, 'apple');
+    assert.ok(open.includes(f.id));
+    assert.notEqual(f.id, 'apple');
+    seen.add(f.id);
+  }
+  assert.deepEqual([...seen].sort(), ['banana', 'strawberry']);
+  assert.equal(pickRandomFruit(['strawberry'], 'strawberry').id, 'strawberry', '1 種類だけならそれ');
+  assert.equal(pickRandomFruit([], null).id, 'strawberry');
+  assert.equal(pickRandomFruit(open, null, () => 0.999).id, 'banana');
+});

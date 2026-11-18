@@ -7,14 +7,16 @@ const titleLabel = (t) => (t ? `${t.icon} ${t.name}` : 'まだ なし');
 const timeText = (sec) => (sec % 60 === 0 ? `${sec / 60}分` : `${sec}秒`);
 
 /** 難易度選択：★・盤面・何分チャレンジ・自己ベスト・称号 */
-export function renderTaSelect(listEl, store) {
+export function renderTaSelect(listEl, store, selected = 1) {
   listEl.replaceChildren(...TA_LEVELS.map((c) => {
     const rec = store.get(c.level);
     const t = titleFor(c.level, rec.bestClears);
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = `ta-level-btn${t && t.id === 'kaiden' ? ' master' : ''}`;
+    btn.className = `ta-level-btn${t && t.id === 'kaiden' ? ' master' : ''}${c.level === selected ? ' selected' : ''}`;
     btn.dataset.level = c.level;
+    btn.setAttribute('role', 'radio');
+    btn.setAttribute('aria-checked', String(c.level === selected));
     btn.innerHTML = `
       <span class="ta-lv-head"><span class="level-stars">${c.stars}</span><span class="level-size">${c.size}×${c.size}</span><span class="ta-lv-time">⏱️ ${challengeName(c.level)}</span></span>
       <span class="ta-lv-rec">自己ベスト <b>${rec.bestClears}</b>問　<span class="ta-lv-title">${titleLabel(t)}</span></span>`;
@@ -23,7 +25,7 @@ export function renderTaSelect(listEl, store) {
   }));
 }
 
-/** 開始前：ルールの説明 */
+/** せつめい：ルールの説明 */
 export function renderTaIntro(el, level, store) {
   const c = taConfig(level);
   const best = store.get(level).bestClears;

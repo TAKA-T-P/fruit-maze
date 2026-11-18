@@ -8,7 +8,7 @@ import { getFruit, DEFAULT_FRUIT_ID } from './fruits.js';
 import { Stopwatch, formatTime } from './timer.js';
 import { HowTo } from './howto.js';
 import { FRUITS } from './fruits.js';
-import { clearStats, allFruitStatuses, unlockedFruitIds, createCollectionStore } from './collection.js';
+import { clearStats, allFruitStatuses, unlockedFruitIds, createCollectionStore, pickRandomFruit, RANDOM_FRUIT_ID } from './collection.js';
 import { allTrophyStatuses, getTrophy } from './trophies.js';
 import { pendingRewards, markRewardsSeen, migrateFirstRun } from './rewards.js';
 import { renderZukan, lockedDetail } from './collection-ui.js';
@@ -59,7 +59,7 @@ const state = {
 sound.setSoundEnabled(state.settings.get('sound'));
 
 // ---------------- 画面切り替え ----------------
-const screens = ['title', 'howto', 'select', 'stage', 'game', 'zukan', 'trophy', 'ta-select', 'ta-intro', 'ta-result', 'ta-records'];
+const screens = ['title', 'howto', 'select', 'stage', 'game', 'zukan', 'trophy', 'ta-select', 'ta-result', 'ta-records'];
 function show(name) {
   // 図鑑を出るとき：見た「NEW!」は次から出さない
   if (name !== 'zukan' && $('#screen-zukan').classList.contains('active') && state.library) state.collection.markZukanSeen(unlockedNow());
@@ -212,6 +212,7 @@ function startRandom(level) {
 
 function startPuzzle(puzzle) {
   const ta = isTa();
+  if (state.collection.isRandom()) applyFruit(pickRandomFruit(unlockedNow(), state.fruit.id)); // 「ランダム」：始めるたびに切り替える
   clearTimeout(state.resultTimer);
   state.level = puzzle.difficulty;
   state.puzzle = puzzle;
@@ -430,7 +431,10 @@ function showResult(rec) {
   const hintNote = $('#result-hint');
   hintNote.textContent = state.hintUsed ? '💡 ヒントなしでクリアすると ★ がつくよ' : '';
   hintNote.hidden = !state.hintUsed;
-  $('#result-fruit').textContent = state.fruit.emoji;
+  $('#result-fruit').textContent = state.collection.isRandom() ? '🎲' : state.fruit.emoji;
+  const many = unlockedNow().length > 1; // 解放済みのフルーツが 1 種類だけなら ◀ ▶ を出さない
+  $('#result-fruit-prev').hidden = !many;
+  $('#result-fruit-next').hidden = !many;
   $('#result-size').textContent = `ステージ${state.stage}・${state.puzzle.rows}×${state.puzzle.cols}`;
   const last = state.stage >= state.library.count(state.level);
   $('#btn-next').textContent = state.fromRandom ? 'つぎの問題（ランダム）▶' : last ? 'ステージ選択へ ▶' : `ステージ${state.stage + 1}へ ▶`;
@@ -493,25 +497,25 @@ $('#btn-next').addEventListener('click', () => {
   openStage(state.level);
 });
 $('#btn-retry').addEventListener('click', () => { sound.play('tap'); startPuzzle(state.puzzle); });
-// クリア画面のフルーツをタップ：解放済みのフルーツを順に切り替える
-$('#result-fruit').addEventListener('click', () => {
+// クリア画面の ◀ ▶：解放済みのフルーツを 前・次に切り替える（ずかんの順）
+function stepResultFruit(dir) {
   const ids = unlockedNow();
-  if (ids.length <= 1) {
-    sound.play('tap');
-    showToast('ステージをクリアすると、ほかのフルーツも つかえるようになるよ');
-    return;
-  }
-  const order = FRUITS.map((f) => f.id).filter((id) => ids.includes(id));
-  const next = order[(order.indexOf(state.fruit.id) + 1) % order.length];
+  if (ids.length <= 1) return;
+  // ずかんの順で一周。最後は「ランダム」
+  const order = [...FRUITS.map((f) => f.id).filter((id) => ids.includes(id)), RANDOM_FRUIT_ID];
+  const cur = state.collection.isRandom() ? RANDOM_FRUIT_ID : state.fruit.id;
+  const next = order[(order.indexOf(cur) + dir + order.length) % order.length];
   if (!selectFruit(next)) return;
   sound.play('tap');
   const el = $('#result-fruit');
-  el.textContent = state.fruit.emoji;
+  el.textContent = state.collection.isRandom() ? '🎲' : state.fruit.emoji;
   el.classList.remove('swap');
   void el.offsetWidth;
   el.classList.add('swap');
   state.renderer?.setFruit(state.fruit);
-});
+}
+$('#result-fruit-prev').addEventListener('click', () => stepResultFruit(-1));
+$('#result-fruit-next').addEventListener('click', () => stepResultFruit(1));
 $('#btn-to-select').addEventListener('click', () => { sound.play('tap'); hideResult(); openStage(state.level); });
 
 // 戻るボタン（各画面の左上）
@@ -601,6 +605,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   if (!$('#settings').hidden) closeSettings();
   else if (!$('#ta-quit').hidden) closeTaQuit();
+  else if (!$('#ta-howto').hidden) closeTaHowto();
 });
 
 // 入力
@@ -628,18 +633,33 @@ ro.observe($('#screen-howto'));
 const isTa = () => state.playMode === 'ta';
 
 function openTaSelect() {
-  renderTaSelect($('#ta-level-list'), state.taStore);
+  renderTaSelect($('#ta-level-list'), state.taStore, state.taLevel);
   show('ta-select');
 }
+// カードをタップ：むずかしさを えらぶだけ（「スタート」で始める）
 $('#ta-level-list').addEventListener('click', (e) => {
   const btn = e.target.closest('.ta-level-btn');
   if (!btn) return;
   sound.unlockAudio();
   sound.play('tap');
   state.taLevel = Number(btn.dataset.level);
-  renderTaIntro($('#ta-intro'), state.taLevel, state.taStore);
-  show('ta-intro');
+  document.querySelectorAll('#ta-level-list .ta-level-btn').forEach((b) => {
+    const on = b === btn;
+    b.classList.toggle('selected', on);
+    b.setAttribute('aria-checked', String(on));
+  });
 });
+// せつめい：えらんでいるむずかしさのルールを表示
+$('#btn-ta-howto').addEventListener('click', () => {
+  sound.unlockAudio();
+  sound.play('tap');
+  renderTaIntro($('#ta-intro'), state.taLevel, state.taStore);
+  $('#ta-howto').hidden = false;
+  $('#btn-ta-howto-close').focus({ preventScroll: true });
+});
+const closeTaHowto = () => { $('#ta-howto').hidden = true; };
+$('#btn-ta-howto-close').addEventListener('click', () => { sound.play('tap'); closeTaHowto(); });
+$('#ta-howto').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeTaHowto(); });
 $('#btn-ta-records').addEventListener('click', () => {
   sound.play('tap');
   renderTaRecords($('#ta-records'), state.taStore);
@@ -854,21 +874,34 @@ const unlockedNow = () => unlockedFruitIds(currentStats());
 
 /** 選んでいるフルーツを復元して、タイトル画面などに反映する */
 function refreshFruit() {
-  state.fruit = state.collection.selectedFruit(unlockedNow());
-  document.querySelectorAll('.deco-fruit, .logo-fruit, .play-fruit').forEach((el) => { el.textContent = state.fruit.emoji; });
-  setMode(state.mode);
-  $('#title-fruit .cf-emoji').textContent = state.fruit.emoji;
-  $('#title-fruit .cf-name').textContent = state.fruit.name;
-  document.documentElement.style.setProperty('--sel-fruit-color', state.fruit.color);
+  const unlocked = unlockedNow();
+  if (state.collection.isRandom()) {
+    // ランダム：いま表示しているフルーツはそのまま（まだゲットしていなければ選び直す）
+    if (!unlocked.includes(state.fruit.id)) state.fruit = pickRandomFruit(unlocked);
+  } else {
+    state.fruit = state.collection.selectedFruit(unlocked);
+  }
+  applyFruit(state.fruit);
+  const rnd = state.collection.isRandom();
+  $('#title-fruit .cf-emoji').textContent = rnd ? '🎲' : state.fruit.emoji;
+  $('#title-fruit .cf-name').textContent = rnd ? 'ランダム' : state.fruit.name;
   // 図鑑にまだ見ていない新しいフルーツがあれば「NEW」
   const seen = state.collection.zukanSeen();
   $('#zukan-badge').hidden = !unlockedNow().some((id) => id !== 'strawberry' && !seen.has(id));
 }
 
+/** 実際に表示するフルーツを変える（タイトルの飾り・ルートボタン・色） */
+function applyFruit(fruit) {
+  state.fruit = fruit;
+  document.querySelectorAll('.deco-fruit, .logo-fruit, .play-fruit').forEach((el) => { el.textContent = fruit.emoji; });
+  setMode(state.mode);
+  document.documentElement.style.setProperty('--sel-fruit-color', fruit.color);
+}
+
 function selectFruit(id, { silent = false } = {}) {
   if (!state.collection.select(id, unlockedNow())) return false;
   refreshFruit();
-  if (!silent) showToast(`${state.fruit.emoji} ${state.fruit.name}を セットしたよ！`);
+  if (!silent) showToast(id === RANDOM_FRUIT_ID ? '🎲 ランダムに したよ！ ステージごとに フルーツが かわるよ' : `${state.fruit.emoji} ${state.fruit.name}を セットしたよ！`);
   return true;
 }
 
@@ -899,6 +932,7 @@ let zukanStatuses = [];
 function openZukan() {
   renderZukanScreen();
   $('#zukan-detail').innerHTML = 'フルーツを タップすると、ばんめんの フルーツが かわるよ';
+  $('#zukan-detail').classList.remove('locked-info');
   show('zukan');
 }
 function renderZukanScreen() {
@@ -907,21 +941,33 @@ function renderZukanScreen() {
   renderZukan({ count: $('#zukan-count'), gauge: $('#zukan-gauge'), grid: $('#zukan-grid') }, {
     statuses: zukanStatuses,
     selectedId: state.fruit.id,
+    random: state.collection.isRandom(),
     newIds: new Set(zukanStatuses.filter((s) => s.unlocked && s.fruit.id !== 'strawberry' && !seen.has(s.fruit.id)).map((s) => s.fruit.id)),
   });
 }
 $('#zukan-grid').addEventListener('click', (e) => {
   const card = e.target.closest('.zukan-card');
   if (!card) return;
+  if (card.dataset.id === RANDOM_FRUIT_ID) {
+    sound.play('tap');
+    $('#zukan-detail').classList.remove('locked-info');
+    if (!state.collection.isRandom()) selectFruit(RANDOM_FRUIT_ID);
+    else showToast('🎲 ランダムを つかっているよ');
+    $('#zukan-detail').innerHTML = '<span class="zd-emoji" aria-hidden="true">🎲</span><b>ランダム</b>：ゲットした フルーツから、ステージを はじめるたびに えらぶよ';
+    renderZukanScreen();
+    return;
+  }
   const st = zukanStatuses.find((s) => s.fruit.id === card.dataset.id);
   if (!st) return;
   if (!st.unlocked) {
-    sound.play('error');
+    // 未獲得：音は鳴らさず、獲得条件だけを表示する
     $('#zukan-detail').innerHTML = lockedDetail(st);
+    $('#zukan-detail').classList.add('locked-info');
     return;
   }
+  $('#zukan-detail').classList.remove('locked-info');
   sound.play('tap');
-  if (st.fruit.id !== state.fruit.id) selectFruit(st.fruit.id);
+  if (st.fruit.id !== state.fruit.id || state.collection.isRandom()) selectFruit(st.fruit.id);
   else showToast(`${st.fruit.emoji} ${st.fruit.name}を つかっているよ`);
   $('#zukan-detail').innerHTML = `<span class="zd-emoji" aria-hidden="true">${st.fruit.emoji}</span><b>${st.fruit.name}</b>で あそぼう！`;
   renderZukanScreen();

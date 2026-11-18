@@ -293,7 +293,7 @@ test('壊れた保存データ・保存不可の環境でも動く', () => {
   assert.equal(s3.recordClear('y').firstClear, true);
 });
 
-test('ステージ番号：各難易度の問題は ID 順に並び、ステージ1〜50 が easy-001〜050 などに対応する', () => {
+test('ステージ番号：並び順の指定がないときは ID 順（easy-001〜050 など）', () => {
   const lib = new PuzzleLibrary(DATA);
   const prefix = { 1: 'easy', 2: 'normal', 3: 'hard', 4: 'expert', 5: 'master' };
   for (const level of [1, 2, 3, 4, 5]) {
@@ -352,4 +352,36 @@ test('ヒントの記録を始める前のクリア記録は、ヒントなし�
   s.recordClear('easy-005', new Date(), { usedHint: true });
   assert.equal(s.isHintFreeCleared('easy-005'), true);
   assert.equal(s.getRecord('easy-005').clearCount, 3);
+});
+
+// ---- ステージの並び（同じ★の中で、難易度評価の低い順） ----
+import { computeStageOrder, formatStageOrder } from '../tools/make-stage-order.mjs';
+const STAGE_ORDER_TEXT = readFileSync(new URL('../data/stage-order.json', import.meta.url), 'utf8');
+const STAGE_ORDER = JSON.parse(STAGE_ORDER_TEXT);
+
+test('ステージの並び：data/stage-order.json は今の問題データと難易度評価から作ったものと一致する', () => {
+  assert.equal(STAGE_ORDER_TEXT.replace(/\r\n/g, '\n'), formatStageOrder(computeStageOrder(DATA.puzzles)));
+});
+
+test('ステージの並び：各★の 50 問をすべて 1 回ずつ含み、評価の低い順。ステージ1〜10 はやさしく、41〜50 はむずかしい', () => {
+  const lib = new PuzzleLibrary(DATA, { stageOrder: STAGE_ORDER });
+  for (const level of [1, 2, 3, 4, 5]) {
+    const list = lib.list(level);
+    const ids = list.map((p) => p.id);
+    assert.equal(list.length, 50);
+    assert.deepEqual([...ids].sort(), DATA.puzzles.filter((p) => p.difficulty === level).map((p) => p.id).sort());
+    const score = ids.map((id) => STAGE_ORDER.scores[id]);
+    for (let i = 1; i < score.length; i++) assert.ok(score[i - 1] <= score[i], `★${level} ステージ${i}→${i + 1}`);
+    assert.ok(Math.max(...score.slice(0, 10)) <= Math.min(...score.slice(40)), `★${level} 1〜10 と 41〜50`);
+    const avg = (a) => a.reduce((x, y) => x + y, 0) / a.length;
+    assert.ok(avg(score.slice(0, 10)) < avg(score.slice(40)));
+  }
+});
+
+test('ステージの並び：並びにない問題はうしろに ID 順で付く・並びが壊れていても全問を出せる', () => {
+  const lib = new PuzzleLibrary(DATA, { stageOrder: { levels: { 1: ['easy-030', 'easy-002', 'nothing'] }, 2: 'bad' } });
+  const easy = lib.list(1).map((p) => p.id);
+  assert.deepEqual(easy.slice(0, 3), ['easy-030', 'easy-002', 'easy-001']);
+  assert.equal(easy.length, 50);
+  assert.equal(lib.list(2)[0].id, 'normal-001');
 });

@@ -9,6 +9,7 @@
     "generate": "node tools/generate-puzzles.mjs --report",
     "validate-puzzles": "node tools/validate-puzzles.mjs",
     "report": "node tools/validate-puzzles.mjs --report",
+    "stage-order": "node tools/make-stage-order.mjs",
     "serve": "python -m http.server 8000"
   }
 }

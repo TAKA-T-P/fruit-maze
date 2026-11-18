@@ -15,6 +15,21 @@ import { FRUITS, DEFAULT_FRUIT_ID, getFruit } from './fruits.js';
 
 export const COLLECTION_KEY = 'fruitMaze.collection.v1';
 export const LEVELS = [1, 2, 3, 4, 5];
+/** 「ランダム」：ゲットしたフルーツの中から、ステージを始めるたびにえらぶ（selectedFruit に保存する値） */
+export const RANDOM_FRUIT_ID = 'random';
+
+/**
+ * ゲットしたフルーツからランダムに 1 つ（2 種類以上あれば、直前のフルーツは避ける）
+ * @param {Iterable<string>} unlocked 解放済みの ID
+ * @param {string|null} [excludeId] 直前のフルーツ
+ */
+export function pickRandomFruit(unlocked, excludeId = null, random = Math.random) {
+  const ok = new Set(unlocked);
+  let ids = FRUITS.map((f) => f.id).filter((id) => ok.has(id));
+  if (!ids.length) return getFruit(DEFAULT_FRUIT_ID);
+  if (ids.length > 1 && excludeId) ids = ids.filter((id) => id !== excludeId);
+  return getFruit(ids[Math.floor(random() * ids.length)]);
+}
 
 /**
  * クリア記録から、ちがうステージのクリア数を数える。
@@ -114,15 +129,19 @@ export function createCollectionStore(backend = safeLocalStorage()) {
      */
     selectedFruit(unlocked) {
       const ok = new Set(unlocked);
+      if (data.selectedFruit === RANDOM_FRUIT_ID) return getFruit(DEFAULT_FRUIT_ID); // ランダムのときの実際のフルーツは pickRandomFruit で
       return ok.has(data.selectedFruit) && FRUITS.some((f) => f.id === data.selectedFruit) ? getFruit(data.selectedFruit) : getFruit(DEFAULT_FRUIT_ID);
     },
     /** フルーツを選ぶ（未解放なら選べない）。選べたら true */
     select(id, unlocked) {
-      if (!new Set(unlocked).has(id) || !FRUITS.some((f) => f.id === id)) return false;
+      const ok = id === RANDOM_FRUIT_ID || (new Set(unlocked).has(id) && FRUITS.some((f) => f.id === id));
+      if (!ok) return false;
       data.selectedFruit = id;
       write();
       return true;
     },
+    /** 「ランダム」を選んでいる */
+    isRandom() { return data.selectedFruit === RANDOM_FRUIT_ID; },
     seenUnlocks() { return new Set(data.seenUnlocks); },
     seenTrophies() { return new Set(data.seenTrophies); },
     seenComplete() { return data.seenComplete; },

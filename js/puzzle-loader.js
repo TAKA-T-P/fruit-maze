@@ -11,8 +11,13 @@ export const DIFFICULTIES = [
 ];
 
 export class PuzzleLibrary {
-  /** @param {{puzzles: object[], tutorial?: object}} data */
-  constructor(data, { onInvalid = (id, errors) => console.warn('[puzzle] 無効な問題をスキップ:', id, errors) } = {}) {
+  /**
+   * @param {{puzzles: object[], tutorial?: object}} data
+   * @param {object} [opt]
+   * @param {{levels: Object<string, string[]>}} [opt.stageOrder] ステージの並び（data/stage-order.json）。
+   *   ないときは ID 順。並びにない問題は、そのうしろに ID 順で付ける
+   */
+  constructor(data, { onInvalid = (id, errors) => console.warn('[puzzle] 無効な問題をスキップ:', id, errors), stageOrder = null } = {}) {
     this.byId = new Map();
     this.byLevel = new Map(DIFFICULTIES.map((d) => [d.level, []]));
     for (const p of data.puzzles || []) {
@@ -23,6 +28,17 @@ export class PuzzleLibrary {
       this.byLevel.get(p.difficulty).push(p);
     }
     this.tutorial = data.tutorial && validatePuzzle(data.tutorial).length === 0 ? data.tutorial : null;
+    if (stageOrder && stageOrder.levels) this._applyStageOrder(stageOrder.levels);
+  }
+
+  /** 同じ ★ の中を、指定された順（やさしい → むずかしい）に並べ替える */
+  _applyStageOrder(levels) {
+    for (const [level, list] of this.byLevel) {
+      const ids = Array.isArray(levels[level]) ? levels[level] : [];
+      const rank = new Map();
+      ids.forEach((id, i) => { if (!rank.has(id)) rank.set(id, i); });
+      list.sort((a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity));
+    }
   }
 
   get(id) { return this.byId.get(id) || null; }
@@ -74,8 +90,19 @@ export async function loadTutorialData(url = 'data/tutorial.json') {
   return parseTutorialData(await res.json());
 }
 
-export async function loadPuzzleLibrary(url = 'data/puzzles.json') {
-  const res = await fetch(url, { cache: 'no-cache' });
+/** ステージの並び（読めなければ null → ID 順のまま） */
+async function loadStageOrder(url) {
+  try {
+    const res = await fetch(url, { cache: 'no-cache' });
+    return res.ok ? await res.json() : null;
+  } catch (err) {
+    console.warn('[stage-order] 読み込めませんでした（ID 順で表示します）', err);
+    return null;
+  }
+}
+
+export async function loadPuzzleLibrary(url = 'data/puzzles.json', { orderUrl = 'data/stage-order.json' } = {}) {
+  const [res, stageOrder] = await Promise.all([fetch(url, { cache: 'no-cache' }), orderUrl ? loadStageOrder(orderUrl) : null]);
   if (!res.ok) throw new Error(`問題データを読み込めませんでした (${res.status})`);
-  return new PuzzleLibrary(await res.json());
+  return new PuzzleLibrary(await res.json(), { stageOrder });
 }

@@ -94,21 +94,13 @@
         <h2 class="bar-title">⏱️ タイムアタック</h2>
         <button type="button" class="btn ghost ta-records-btn" id="btn-ta-records">📊 きろく</button>
       </header>
-      <p class="ta-select-lead">何問 クリアできるかな？ むずかしさを えらぼう</p>
-      <div id="ta-level-list" class="level-list ta-level-list"></div>
-    </section>
-
-    <!-- タイムアタック：開始前 -->
-    <section id="screen-ta-intro" class="screen" aria-label="タイムアタックのルール">
-      <header class="bar">
-        <button type="button" class="icon-btn" data-back="ta-select" aria-label="むずかしさ選択へもどる">←</button>
-        <h2 class="bar-title">⏱️ タイムアタック</h2>
-        <span class="bar-right"></span>
-      </header>
-      <div class="collect-body">
-        <div id="ta-intro" class="ta-intro"></div>
-        <button type="button" id="btn-ta-start" class="btn primary big ta-go">スタート！</button>
+      <p class="ta-select-lead">むずかしさを えらんで スタート！</p>
+      <!-- えらんだむずかしさの「せつめい」と「スタート」 -->
+      <div class="ta-select-actions">
+        <button type="button" id="btn-ta-howto" class="btn secondary">📖 せつめい</button>
+        <button type="button" id="btn-ta-start" class="btn primary">▶ スタート</button>
       </div>
+      <div id="ta-level-list" class="level-list ta-level-list" role="radiogroup" aria-label="むずかしさ"></div>
     </section>
 
     <!-- タイムアタック：結果 -->
@@ -231,8 +223,12 @@
       <!-- クリア結果 -->
       <div id="result" class="result-overlay" hidden>
         <div class="result-card" role="dialog" aria-labelledby="result-title">
-          <!-- タップすると別のフルーツに変えられる -->
-          <button type="button" id="result-fruit" class="result-fruit" aria-label="フルーツを かえる">🍓</button>
+          <!-- ◀ ▶ で前・次のフルーツに変えられる -->
+          <div class="result-fruit-row">
+            <button type="button" id="result-fruit-prev" class="fruit-arrow" aria-label="まえのフルーツ">◀</button>
+            <div id="result-fruit" class="result-fruit" aria-live="polite">🍓</div>
+            <button type="button" id="result-fruit-next" class="fruit-arrow" aria-label="つぎのフルーツ">▶</button>
+          </div>
           <h2 id="result-title" class="result-title">クリア！</h2>
           <div class="result-badges">
             <span id="result-badge" class="result-badge first" hidden>🎉 初クリア</span>
@@ -287,6 +283,13 @@
       </div>
     </div>
 
+    <!-- タイムアタック：せつめい（むずかしさ選択の「せつめい」から） -->
+    <div id="ta-howto" class="modal-overlay" hidden>
+      <div class="modal-card ta-howto-card" role="dialog" aria-modal="true" aria-label="タイムアタックの せつめい">
+        <div id="ta-intro" class="ta-intro"></div>
+        <button type="button" id="btn-ta-howto-close" class="btn secondary">とじる</button>
+      </div>
+    </div>
     <!-- タイムアタック：3・2・1 -->
     <div id="ta-countdown" class="ta-countdown" hidden><span id="ta-count"></span></div>
     <!-- タイムアタック：CLEAR! +1問／最終問題！／時間切れ -->

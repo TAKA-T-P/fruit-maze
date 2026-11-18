@@ -30,7 +30,7 @@ export const challengeName = (level) => {
 /** 開始前の 3・2・1 の 1 カウントの長さ（ミリ秒） */
 export const COUNTDOWN_STEP_MS = 800;
 /** 正解したときの短い演出（ミリ秒）。この間も時間は進む */
-export const CLEAR_FX_MS = 450;
+export const CLEAR_FX_MS = 800;
 /** 時間切れの表示（ミリ秒） */
 export const TIMEUP_MS = 1000;
 /** 残り時間をあかく目立たせる秒数 */

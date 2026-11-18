@@ -6,12 +6,27 @@
  * @param {ReturnType<import('./collection.js').allFruitStatuses>} o.statuses
  * @param {string} o.selectedId       選んでいるフルーツ
  * @param {Set<string>} o.newIds      「NEW!」を付けるフルーツ
+ * @param {boolean} [o.random]        「ランダム」を選んでいる（このときフルーツのカードには「つかってる」を付けない）
  */
-export function renderZukan(dom, { statuses, selectedId, newIds }) {
+export function renderZukan(dom, { statuses, selectedId, newIds, random = false }) {
   const got = statuses.filter((s) => s.unlocked).length;
   dom.count.innerHTML = `フルーツ <b>${got}</b> / ${statuses.length} しゅるい ゲット！`;
   dom.gauge.style.width = `${Math.round((got / statuses.length) * 100)}%`;
-  dom.grid.replaceChildren(...statuses.map((s) => {
+  if (random) selectedId = null;
+  // いちばん前：「ランダム」（ゲットしたフルーツから、ステージごとにえらぶ）
+  const rnd = document.createElement('button');
+  rnd.type = 'button';
+  rnd.className = `zukan-card unlocked random-card${random ? ' selected' : ''}`;
+  rnd.dataset.id = 'random';
+  rnd.setAttribute('role', 'listitem');
+  rnd.style.setProperty('--fc', '#9c6ade');
+  rnd.style.setProperty('--fl', '#f3ecff');
+  rnd.setAttribute('aria-label', `ランダム（ゲットしたフルーツから、ステージごとにえらぶ）${random ? '（つかっている）' : '（タップでセット）'}`);
+  rnd.innerHTML = `
+    ${random ? '<span class="zc-using">つかってる</span>' : ''}
+    <span class="zc-emoji" aria-hidden="true">🎲</span>
+    <span class="zc-name">ランダム</span>`;
+  dom.grid.replaceChildren(rnd, ...statuses.map((s) => {
     const f = s.fruit;
     const card = document.createElement('button');
     card.type = 'button';
