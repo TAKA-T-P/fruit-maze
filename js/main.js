@@ -7,6 +7,13 @@ import { createStore } from './storage.js';
 import { getFruit, DEFAULT_FRUIT_ID } from './fruits.js';
 import { Stopwatch, formatTime } from './timer.js';
 import { HowTo } from './howto.js';
+import { FRUITS } from './fruits.js';
+import { clearStats, allFruitStatuses, unlockedFruitIds, createCollectionStore } from './collection.js';
+import { allTrophyStatuses, getTrophy } from './trophies.js';
+import { pendingRewards, markRewardsSeen, migrateFirstRun } from './rewards.js';
+import { renderZukan, lockedDetail } from './collection-ui.js';
+import { renderTrophies } from './trophy-ui.js';
+import { RewardOverlay } from './reward-ui.js';
 import { MemoBoard, MEMO, nextMode } from './memo.js';
 import { HintSession } from './hint.js';
 import { HintPanel } from './hint-ui.js';
@@ -18,7 +25,8 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const state = {
   library: null,
   store: createStore(),
-  fruit: getFruit(DEFAULT_FRUIT_ID), // 第4段階で「選んだフルーツ」に切り替える
+  fruit: getFruit(DEFAULT_FRUIT_ID), // 選んでいるフルーツ（起動時に collection から復元）
+  collection: createCollectionStore(), // 選んだフルーツ・演出を見たか（fruitMaze.collection.v1）
   level: null,
   puzzle: null,
   game: null,
@@ -37,9 +45,12 @@ const state = {
 sound.setSoundEnabled(state.settings.get('sound'));
 
 // ---------------- 画面切り替え ----------------
-const screens = ['title', 'howto', 'select', 'stage', 'game'];
+const screens = ['title', 'howto', 'select', 'stage', 'game', 'zukan', 'trophy'];
 function show(name) {
+  // 図鑑を出るとき：見た「NEW!」は次から出さない
+  if (name !== 'zukan' && $('#screen-zukan').classList.contains('active') && state.library) state.collection.markZukanSeen(unlockedNow());
   for (const s of screens) $(`#screen-${s}`).classList.toggle('active', s === name);
+  if (name === 'title' && state.library) refreshFruit();
   if (name !== 'howto') howto && howto.close();
   if (name !== 'game') stopTicker();
   window.scrollTo(0, 0);
@@ -53,13 +64,15 @@ $('#screen-title').addEventListener('click', (e) => {
   sound.play('tap');
   if (action === 'play') openSelect();
   if (action === 'howto') openHowto();
+  if (action === 'zukan') openZukan();
+  if (action === 'trophy') openTrophy();
 });
 
 // ---------------- あそびかた ----------------
 let howto = null;
 function openHowto() {
   if (!state.tutorialData) return;
-  if (!howto) {
+  if (!howto || howto.fruit !== state.fruit) {
     howto = new HowTo($('#screen-howto'), state.tutorialData, state.fruit, { getClueStyle: () => state.settings.get('clueStyle') });
     howto.onFinish = () => openSelect();
   }
@@ -89,12 +102,17 @@ function renderLevelList() {
       btn.classList.add('coming-soon');
     }
     if (d.level === last && total) btn.classList.add('last');
-    if (total && cleared === total) btn.classList.add('complete');
+    const trophy = getTrophy(d.level);
+    const earned = total > 0 && cleared === total;
+    if (earned) btn.classList.add('complete');
     // ★・盤面サイズ・クリア数を 1 行にならべる
     btn.innerHTML = `
       <span class="level-stars" aria-label="むずかしさ ${d.level}">${d.stars}</span>
       <span class="level-size">${d.size}×${d.size}</span>
-      <span class="level-progress">${total ? `${cleared === total ? '🏆 ' : ''}クリア <b>${cleared}</b> / ${total}` : '準備中'}</span>`;
+      <span class="level-progress">${!total ? '準備中' : earned
+        ? `<span class="lv-trophy" aria-label="${trophy.name}トロフィー">${trophy.icon}</span> <b>${cleared}</b> / ${total}`
+        : `クリア <b>${cleared}</b> / ${total}`}</span>
+      ${earned ? '<span class="level-complete">コンプリート！</span>' : ''}`;
     return btn;
   }));
 }
@@ -128,7 +146,10 @@ function renderStageGrid() {
   const cleared = state.store.firstClearCount(list.map((p) => p.id));
   $('#stage-stars').textContent = d.stars;
   $('#stage-size').textContent = `${d.size}×${d.size}`;
-  $('#stage-progress').innerHTML = `クリア <b>${cleared}</b> / ${list.length}`;
+  const trophy = getTrophy(level);
+  $('#stage-progress').innerHTML = cleared === list.length && list.length
+    ? `<span class="lv-trophy">${trophy.icon}</span> コンプリート！ <b>${cleared}</b> / ${list.length}`
+    : `クリア <b>${cleared}</b> / ${list.length}`;
   const lastId = state.lastPuzzleId[level];
   $('#stage-grid').replaceChildren(...list.map((p, i) => {
     const btn = document.createElement('button');
@@ -237,7 +258,7 @@ function setMode(mode) {
   const v = MODE_VIEW[mode];
   const btn = $('#btn-mode');
   btn.dataset.mode = mode;
-  btn.querySelector('.mode-icon').textContent = v.icon;
+  btn.querySelector('.mode-icon').textContent = mode === 'route' ? state.fruit.emoji : v.icon; // ルートは選んでいるフルーツ
   btn.querySelector('.mode-label').textContent = v.label;
   btn.setAttribute('aria-label', `操作モード：${v.label}（押すと切り替え）`);
   btn.querySelectorAll('.mode-dots i').forEach((d, i) => d.classList.toggle('on', i === Object.keys(MODE_VIEW).indexOf(mode)));
@@ -352,9 +373,12 @@ function onCleared() {
   setMessage('やったね！', 'success');
   state.renderer.celebrate();
   const rec = state.store.recordClear(state.puzzle.id);
-  state.resultTimer = setTimeout(() => showResult(rec), 1500);
-  // 演出中にタップしたら すぐ結果へ
-  const skip = () => { clearTimeout(state.resultTimer); showResult(rec); };
+  // 報酬（フルーツ解放・トロフィー獲得）はまとめて判定し、クリア演出のあとに 1 回の流れで見せる
+  const rewards = pendingRewards(currentStats(), state.collection, totalOf);
+  const next = () => (rewards.isEmpty ? showResult(rec) : showRewards(rewards, () => showResult(rec)));
+  state.resultTimer = setTimeout(next, 1500);
+  // 演出中にタップしたら すぐ次へ
+  const skip = () => { clearTimeout(state.resultTimer); next(); };
   $('#board-area').addEventListener('pointerdown', skip, { once: true });
   state.skipHandler = skip;
 }
@@ -467,6 +491,8 @@ function openSettings() {
   disarmReset();
   renderSettings();
   $('#btn-reset').hidden = !inGame;
+  // タイトル画面から開いたときは「KEC数学科ラボへ」を出す
+  $('#link-portal').hidden = !$('#screen-title').classList.contains('active');
   $('#settings').hidden = false;
   if (inGame) {
     $('#screen-game').classList.add('settings-open');
@@ -528,6 +554,109 @@ const ro = new ResizeObserver(() => { fitBoard(); howto && howto.fit(); });
 ro.observe($('#board-area'));
 ro.observe($('#screen-howto'));
 
+// ---------------- フルーツコレクション・トロフィー ----------------
+const totalOf = (level) => state.library.count(level);
+/** クリア記録から数えた、ちがうステージのクリア数（累計・難易度別） */
+const currentStats = () => clearStats(state.store.clearedIds(), (id) => state.library.get(id)?.difficulty);
+const unlockedNow = () => unlockedFruitIds(currentStats());
+
+/** 選んでいるフルーツを復元して、タイトル画面などに反映する */
+function refreshFruit() {
+  state.fruit = state.collection.selectedFruit(unlockedNow());
+  document.querySelectorAll('.deco-fruit, .logo-fruit, .play-fruit').forEach((el) => { el.textContent = state.fruit.emoji; });
+  setMode(state.mode);
+  $('#title-fruit .cf-emoji').textContent = state.fruit.emoji;
+  $('#title-fruit .cf-name').textContent = state.fruit.name;
+  document.documentElement.style.setProperty('--sel-fruit-color', state.fruit.color);
+  // 図鑑にまだ見ていない新しいフルーツがあれば「NEW」
+  const seen = state.collection.zukanSeen();
+  $('#zukan-badge').hidden = !unlockedNow().some((id) => id !== 'strawberry' && !seen.has(id));
+}
+
+function selectFruit(id, { silent = false } = {}) {
+  if (!state.collection.select(id, unlockedNow())) return false;
+  refreshFruit();
+  if (!silent) showToast(`${state.fruit.emoji} ${state.fruit.name}を セットしたよ！`);
+  return true;
+}
+
+let toastTimer = null;
+function showToast(text, ms = 2200) {
+  const el = $('#toast');
+  el.textContent = text;
+  el.hidden = false;
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.hidden = true; }, ms);
+}
+
+// ---- 報酬の演出 ----
+const rewardOverlay = new RewardOverlay($('#reward'));
+function showRewards(rewards, done) {
+  markRewardsSeen(state.collection, rewards); // 見せた時点で「見た」ことにする（とばしても報酬は失われない）
+  rewardOverlay.show(rewards, {
+    onUseFruit: (id) => selectFruit(id),
+    onDone: () => { refreshFruit(); done && done(); },
+  });
+}
+
+// ---- フルーツずかん ----
+let zukanStatuses = [];
+function openZukan() {
+  renderZukanScreen();
+  $('#zukan-detail').innerHTML = 'フルーツを タップすると、ばんめんの フルーツが かわるよ';
+  show('zukan');
+}
+function renderZukanScreen() {
+  zukanStatuses = allFruitStatuses(currentStats()); // 開くたびにクリア記録から判定
+  const seen = state.collection.zukanSeen();
+  renderZukan({ count: $('#zukan-count'), gauge: $('#zukan-gauge'), grid: $('#zukan-grid') }, {
+    statuses: zukanStatuses,
+    selectedId: state.fruit.id,
+    newIds: new Set(zukanStatuses.filter((s) => s.unlocked && s.fruit.id !== 'strawberry' && !seen.has(s.fruit.id)).map((s) => s.fruit.id)),
+  });
+}
+$('#zukan-grid').addEventListener('click', (e) => {
+  const card = e.target.closest('.zukan-card');
+  if (!card) return;
+  const st = zukanStatuses.find((s) => s.fruit.id === card.dataset.id);
+  if (!st) return;
+  if (!st.unlocked) {
+    sound.play('error');
+    $('#zukan-detail').innerHTML = lockedDetail(st);
+    return;
+  }
+  sound.play('tap');
+  if (st.fruit.id !== state.fruit.id) selectFruit(st.fruit.id);
+  else showToast(`${st.fruit.emoji} ${st.fruit.name}を つかっているよ`);
+  $('#zukan-detail').innerHTML = `<span class="zd-emoji" aria-hidden="true">${st.fruit.emoji}</span><b>${st.fruit.name}</b>で あそぼう！`;
+  renderZukanScreen();
+});
+
+// ---- トロフィー ----
+function openTrophy() {
+  renderTrophies({ count: $('#trophy-count'), gauge: $('#trophy-gauge'), list: $('#trophy-list'), complete: $('#trophy-complete') },
+    allTrophyStatuses(currentStats(), totalOf));
+  show('trophy');
+}
+
+/** 起動時：選んだフルーツの復元、はじめての起動の処理、まだ見ていない報酬の演出 */
+function initCollection() {
+  const stats = currentStats();
+  if (state.collection.isNew) {
+    // 第4段階へのアップデート直後など：達成済みのものは演出せず、まとめて解放済みにして 1 回だけ知らせる
+    const n = migrateFirstRun(stats, state.collection, totalOf);
+    refreshFruit();
+    if (n.newFruits > 0) setTimeout(() => showToast(`🎉 あたらしく ${n.newFruits}しゅるいの フルーツが つかえるようになったよ！`, 3600), 400);
+    return;
+  }
+  refreshFruit();
+  const rewards = pendingRewards(stats, state.collection, totalOf);
+  if (!rewards.isEmpty) setTimeout(() => showRewards(rewards), 400); // 前回、演出の前にとじた場合など
+}
+
 // ---------------- 起動 ----------------
 async function boot() {
   applyButtonLayout();
@@ -538,6 +667,7 @@ async function boot() {
       console.warn(err);
       return { pages: { route: state.library.tutorial } };
     });
+    initCollection();
     document.body.classList.remove('loading');
   } catch (err) {
     console.error(err);
@@ -549,4 +679,4 @@ async function boot() {
 boot();
 
 // デバッグ・テスト用（ブラウザのコンソールから参照できる）
-window.fruitMaze = { state, get howto() { return howto; } };
+window.fruitMaze = { state, get howto() { return howto; }, currentStats, unlockedNow };

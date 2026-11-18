@@ -63,7 +63,7 @@ function miniIllust({ rows, cols, route = [], blanks = [], from, to, clue, capti
 
 // 操作モードのボタン表示（プレイ画面と同じ：ルート → ○つけ → ×つけ → 消す）
 const MODE_VIEW = {
-  'route': { icon: '🍓', label: 'ルート' },
+  'route': { icon: '🍓', label: 'ルート' }, // アイコンは選んでいるフルーツにする（_setMode）
   'memo-on': { icon: '✏️', label: '○つけ' },
   'memo-off': { icon: '✏️', label: '×つけ' },
   'memo-erase': { icon: '🧽', label: '消す' },
@@ -314,7 +314,7 @@ export class HowTo {
     const btn = this.toolsEl.querySelector('[data-tool="mode"]');
     const v = MODE_VIEW[mode] || MODE_VIEW.route;
     btn.dataset.mode = mode;
-    btn.querySelector('.mode-icon').textContent = v.icon;
+    btn.querySelector('.mode-icon').textContent = mode === 'route' ? this.fruit.emoji : v.icon;
     btn.querySelector('.mode-label').textContent = v.label;
     btn.setAttribute('aria-label', `操作モード：${v.label}（押すと切り替え）`);
     btn.querySelectorAll('.mode-dots i').forEach((d, i) => d.classList.toggle('on', i === Object.keys(MODE_VIEW).indexOf(mode)));

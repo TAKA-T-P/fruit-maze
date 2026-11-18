@@ -446,6 +446,23 @@ button { font-family: inherit; touch-action: manipulation; }
 .seg button.on { background: var(--red); color: #fff; box-shadow: 0 2px 0 var(--red-dark); }
 .setting-note { margin: -4px 0 0; font-size: .82rem; font-weight: 700; color: var(--ink-soft); line-height: 1.5; }
 .setting-reset { min-height: 48px; }
+/* 横向きで高さが低い画面：設定画面をつめて、スクロールなしで全部見えるように */
+@media (max-height: 500px) and (orientation: landscape) {
+  .modal-overlay { padding: 8px; }
+  .modal-card { width: min(520px, 100%); padding: 10px 18px 12px; gap: 6px; }
+  .modal-title { font-size: 1.05rem; margin: 0; }
+  .seg button { min-height: 34px; padding: 2px 12px; }
+  .setting-note { font-size: .75rem; margin: -2px 0 0; }
+  .modal-card > .btn { min-height: 40px; padding: 6px 12px; }
+}
+/* 「KEC数学科ラボへ」（タイトル画面の設定のいちばん下） */
+.portal-link {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 46px;
+  text-decoration: none;
+  font-size: .95rem;
+  color: var(--ink);
+}
 
 /* 幅の狭いスマートフォン：盤面の左右の余白を減らしてマスを大きくする */
 @media (max-width: 430px) {
@@ -741,3 +758,158 @@ button { font-family: inherit; touch-action: manipulation; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* ===================== 第4段階：フルーツコレクション・トロフィー ===================== */
+
+/* ---- タイトル画面のメニュー ---- */
+.menu-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; width: min(320px, 100%); }
+.menu .menu-tile {
+  width: auto; position: relative;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-height: 76px; padding: 8px 4px; border-radius: 18px;
+  font-size: .85rem; line-height: 1.25; font-family: var(--font), var(--emoji);
+}
+.tile-icon { font-size: 1.6rem; line-height: 1.1; }
+.tile-badge {
+  position: absolute; top: -8px; right: -4px;
+  background: var(--red); color: #fff; font-size: .62rem; font-weight: 800;
+  padding: 1px 6px; border-radius: 99px; box-shadow: 0 2px 0 var(--red-dark);
+  animation: bob 1.6s ease-in-out infinite;
+}
+.current-fruit {
+  border: none; background: rgba(255, 255, 255, .7); cursor: pointer;
+  font: inherit; font-size: .9rem; font-weight: 700; color: var(--ink-soft);
+  padding: 6px 14px; border-radius: 99px; box-shadow: inset 0 0 0 2px var(--line-soft);
+  font-family: var(--font), var(--emoji);
+}
+.current-fruit b { color: var(--ink); }
+.current-fruit .cf-emoji { font-size: 1.15rem; vertical-align: -2px; }
+@media (max-height: 500px) and (orientation: landscape) {
+  .menu { flex-wrap: wrap; gap: 10px; }
+  .menu-tiles { width: auto; grid-template-columns: repeat(3, 92px); }
+  .menu .menu-tile { min-height: 56px; padding: 4px; gap: 0; font-size: .74rem; line-height: 1.15; white-space: nowrap; }
+  .tile-icon { font-size: 1.15rem; }
+  .current-fruit { padding: 4px 12px; }
+}
+
+/* ---- むずかしさ・ステージのトロフィー ---- */
+.lv-trophy { font-family: var(--emoji); font-size: 1.1em; }
+.level-complete {
+  position: absolute; top: -10px; left: 14px;
+  font-size: .68rem; font-weight: 800; color: #7a4f00;
+  background: #ffe066; border: 2px solid #f0b400; padding: 0 8px; border-radius: 99px;
+}
+
+/* ---- ずかん・トロフィー画面の共通 ---- */
+.collect-head { max-width: 640px; width: 100%; margin: 0 auto; padding: 0 16px 8px; }
+.collect-count { margin: 0 0 6px; text-align: center; font-weight: 800; font-size: 1.05rem; }
+.collect-count b { color: var(--red); font-size: 1.3em; }
+.gauge { height: 12px; border-radius: 99px; background: #fff; box-shadow: inset 0 0 0 2px var(--line-soft); overflow: hidden; }
+.gauge i { display: block; height: 100%; background: linear-gradient(90deg, #ff8fa3, var(--red)); border-radius: 99px; transition: width .4s; }
+.gauge.gold i { background: linear-gradient(90deg, #ffe066, #f0a400); }
+.collect-body { flex: 1; min-height: 0; overflow-y: auto; max-width: 640px; width: 100%; margin: 0 auto; padding: 12px 16px 20px; }
+
+/* ---- ずかん ---- */
+.zukan-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 8px; }
+@media (min-width: 560px) { .zukan-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); } }
+.zukan-card {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 14px 4px 10px; min-height: 104px;
+  border-radius: 16px; border: 3px solid var(--line-soft); background: #fff;
+  box-shadow: 0 3px 0 rgba(120, 60, 40, .12);
+  font: inherit; color: var(--ink); cursor: pointer;
+}
+.zukan-card:active { transform: translateY(2px); box-shadow: none; }
+.zukan-card.unlocked { background: var(--fl); border-color: color-mix(in srgb, var(--fc) 45%, white); }
+.zukan-card.selected { border-color: var(--fc); box-shadow: 0 0 0 3px color-mix(in srgb, var(--fc) 35%, transparent), 0 3px 0 rgba(120, 60, 40, .12); }
+.zc-no { position: absolute; top: 3px; left: 7px; font-size: .62rem; font-weight: 800; color: var(--ink-soft); opacity: .7; }
+.zc-emoji { font-family: var(--emoji); font-size: 2rem; line-height: 1.15; }
+.zc-name { font-size: .72rem; font-weight: 800; line-height: 1.2; text-align: center; word-break: keep-all; }
+.zukan-card.locked { background: #f6f1ea; cursor: help; }
+.zukan-card.locked .zc-emoji { filter: grayscale(1); opacity: .32; }
+.zukan-card.locked .zc-name { color: var(--ink-soft); }
+.zc-lock { position: absolute; top: 22px; left: 50%; transform: translateX(-50%); font-family: var(--emoji); font-size: 1.15rem; }
+.zc-progress { font-size: .66rem; font-weight: 800; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.zc-bar { width: 78%; height: 5px; border-radius: 99px; background: #eadbc4; overflow: hidden; }
+.zc-bar i { display: block; height: 100%; background: var(--fc); }
+.zc-new { position: absolute; top: -9px; right: -4px; background: var(--red); color: #fff; font-size: .6rem; font-weight: 800; padding: 1px 6px; border-radius: 99px; animation: bob 1.6s ease-in-out infinite; }
+.zc-using { position: absolute; bottom: -9px; left: 50%; transform: translateX(-50%); white-space: nowrap; background: var(--fc); color: #fff; font-size: .58rem; font-weight: 800; padding: 1px 7px; border-radius: 99px; }
+.zukan-detail { margin: 14px 0 0; padding: 10px 12px; border-radius: 14px; background: #fff; box-shadow: inset 0 0 0 2px var(--line-soft); font-weight: 700; font-size: .9rem; line-height: 1.6; text-align: center; min-height: 3.6em; }
+.zd-emoji { font-family: var(--emoji); font-size: 1.3rem; margin-right: 4px; vertical-align: -3px; }
+
+/* ---- トロフィー ---- */
+.trophy-list { display: flex; flex-direction: column; gap: 10px; }
+.trophy-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; border-radius: 18px; border: 3px solid var(--line-soft); background: #fff;
+  box-shadow: 0 3px 0 rgba(120, 60, 40, .12);
+}
+.tr-icon { font-family: var(--emoji); font-size: 2.4rem; line-height: 1; width: 3rem; text-align: center; }
+.trophy-card.locked .tr-icon { filter: grayscale(1) brightness(.6); opacity: .35; }
+.trophy-card.earned { background: #fff9db; border-color: #f0c419; }
+.trophy-card.earned .tr-icon { animation: bob 2.4s ease-in-out infinite; }
+.tr-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.tr-name { font-weight: 800; font-size: 1.05rem; }
+.tr-stars { color: #f5a623; margin-left: 8px; font-size: .9rem; letter-spacing: 0; }
+.tr-bar { height: 8px; border-radius: 99px; background: #eadbc4; overflow: hidden; }
+.tr-bar i { display: block; height: 100%; background: linear-gradient(90deg, #ffe066, #f0a400); }
+.tr-progress { font-size: .85rem; font-weight: 700; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.tr-progress b { color: var(--red); }
+.tr-get { color: #c77c00 !important; margin-right: 4px; }
+.trophy-complete {
+  text-align: center; margin: 0 0 12px; padding: 12px; border-radius: 20px;
+  background: linear-gradient(135deg, #fff3bf, #ffe066 50%, #ffd43b); border: 3px solid #f0b400;
+  box-shadow: 0 4px 0 #d9a400;
+}
+.tc-crown { font-family: var(--emoji); font-size: 2.6rem; animation: bob 1.8s ease-in-out infinite; }
+.tc-title { margin: 2px 0; font-weight: 800; font-size: 1.2rem; color: #7a4f00; }
+.tc-sub { margin: 0; font-weight: 700; font-size: .9rem; color: #8a5a00; }
+
+/* ---- 報酬の演出 ---- */
+.reward-overlay { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 16px; background: rgba(74, 53, 48, .45); }
+.reward-card {
+  position: relative; width: min(380px, 100%); max-height: 100%; overflow: auto;
+  background: var(--cream); border: 4px solid #fff; border-radius: 28px;
+  box-shadow: 0 10px 0 rgba(120, 60, 40, .18), 0 20px 40px rgba(0, 0, 0, .2);
+  padding: 18px; text-align: center;
+  animation: pop-card .3s cubic-bezier(.2, 1.4, .4, 1);
+}
+.reward-card.rw-trophy, .reward-card.rw-complete { background: linear-gradient(180deg, #fffbe6, var(--cream)); }
+.rw-label { margin: 0; font-weight: 800; color: var(--green-dark); font-size: 1rem; }
+.rw-big { font-family: var(--emoji); font-size: 5rem; line-height: 1.15; margin: 4px 0; display: inline-block; animation: rw-hop 1.1s ease-out both, bob 2s ease-in-out 1.1s infinite; }
+@keyframes rw-hop { 0% { transform: scale(.2) rotate(-20deg); opacity: 0; } 45% { transform: scale(1.25) rotate(6deg); opacity: 1; } 65% { transform: scale(.92); } 80% { transform: translateY(-10%) scale(1.05); } 100% { transform: none; } }
+.rw-title { margin: 2px 0 4px; font-size: 1.35rem; color: var(--red); line-height: 1.35; }
+.rw-sub { margin: 0 0 6px; font-weight: 700; color: var(--ink-soft); }
+.rw-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.rw-fruits { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 8px 0 4px; }
+.rw-pick {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  min-width: 84px; padding: 8px 8px 6px; border-radius: 18px; border: 3px solid var(--line-soft);
+  background: #fff; cursor: pointer; font: inherit; box-shadow: 0 3px 0 rgba(120, 60, 40, .15);
+  animation: rw-hop 1s ease-out both;
+}
+.rw-pick:nth-child(2) { animation-delay: .12s; }
+.rw-pick:nth-child(3) { animation-delay: .24s; }
+.rw-pick:nth-child(4) { animation-delay: .36s; }
+.rw-pick:active { transform: translateY(2px); box-shadow: none; }
+.rw-pick-emoji { font-family: var(--emoji); font-size: 2.6rem; line-height: 1.1; }
+.rw-pick-name { font-size: .8rem; font-weight: 800; }
+.rw-sparks { position: absolute; left: 50%; top: 92px; width: 0; height: 0; pointer-events: none; }
+@media (max-height: 500px) {
+  .rw-big { font-size: 3.4rem; }
+  .reward-card { padding: 12px 16px; }
+  .rw-actions { flex-direction: row; justify-content: center; }
+}
+
+/* ---- お知らせ ---- */
+.toast {
+  position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 24px); z-index: 50;
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px); width: max-content;
+  background: rgba(74, 53, 48, .92); color: #fff; font-weight: 800; font-size: .95rem;
+  padding: 10px 18px; border-radius: 99px; box-shadow: 0 6px 18px rgba(0, 0, 0, .2);
+  font-family: var(--font), var(--emoji); text-align: center; pointer-events: none;
+}
+.toast.show { animation: toast-in .25s ease-out; }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }

@@ -37,6 +37,8 @@ const SOUNDS = {
   error: () => { tone(200, { dur: 0.09, type: 'square', gain: 0.05 }); tone(160, { start: 0.08, dur: 0.1, type: 'square', gain: 0.05 }); },
   goalMiss: () => { tone(520, { dur: 0.1, type: 'triangle' }); tone(440, { start: 0.12, dur: 0.14, type: 'triangle' }); },
   clear: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, { start: i * 0.09, dur: 0.18, type: 'triangle', gain: 0.12 })),
+  // フルーツ解放・トロフィー獲得：キラキラ上がっていく音
+  reward: () => [784, 988, 1175, 1568, 1319, 1568].forEach((f, i) => tone(f, { start: i * 0.07, dur: i === 5 ? 0.35 : 0.14, type: 'sine', gain: 0.1 })),
   tap: () => tone(880, { dur: 0.04, type: 'sine', gain: 0.05 }),
 };
 

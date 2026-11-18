@@ -19,15 +19,23 @@
     <section id="screen-title" class="screen active" aria-label="タイトル">
       <button type="button" id="btn-settings-title" class="icon-btn title-settings" aria-label="設定" aria-haspopup="dialog">⚙️</button>
       <div class="title-wrap">
+        <!-- 飾りのフルーツは「いまのフルーツ」 -->
         <div class="title-deco" aria-hidden="true">
-          <span>🍓</span><span>🍓</span><span>🍓</span>
+          <span class="deco-fruit">🍓</span><span class="deco-fruit">🍓</span><span class="deco-fruit">🍓</span>
         </div>
         <h1 class="title-logo"><span class="logo-fruit" aria-hidden="true">🍓</span>フルーツめいろ！</h1>
         <p class="catch">数字をヒントに、フルーツの道をつなごう！</p>
-        <!-- 将来「3分チャレンジ」「フルーツ図鑑」「記録・称号」をここに追加する -->
+        <!-- 将来「3分チャレンジ」「記録・称号」をここに追加する -->
         <nav id="title-menu" class="menu">
-          <button type="button" class="btn primary big" data-action="play">▶ あそぶ</button>
-          <button type="button" class="btn secondary big" data-action="howto">? あそびかた</button>
+          <button type="button" class="btn primary big" data-action="play"><span class="play-fruit" aria-hidden="true">🍓</span> あそぶ</button>
+          <div class="menu-tiles">
+            <button type="button" class="btn secondary menu-tile" data-action="howto"><span class="tile-icon" aria-hidden="true">📖</span><span>あそびかた</span></button>
+            <button type="button" class="btn secondary menu-tile" data-action="zukan"><span class="tile-icon" aria-hidden="true">🍇</span><span>フルーツ<br>ずかん</span><span class="tile-badge" id="zukan-badge" hidden>NEW</span></button>
+            <button type="button" class="btn secondary menu-tile" data-action="trophy"><span class="tile-icon" aria-hidden="true">🏆</span><span>トロフィー</span></button>
+          </div>
+          <button type="button" class="current-fruit" data-action="zukan" id="title-fruit" aria-label="いまのフルーツ（フルーツずかんへ）">
+            <span class="cf-emoji" aria-hidden="true">🍓</span> いまのフルーツ：<b class="cf-name">イチゴ</b>
+          </button>
         </nav>
         <p id="load-error" class="load-error" hidden>
           問題データを よみこめませんでした。<br>
@@ -76,6 +84,44 @@
         <span class="bar-right"></span>
       </header>
       <div id="level-list" class="level-list"></div>
+    </section>
+
+    <!-- フルーツずかん -->
+    <section id="screen-zukan" class="screen" aria-label="フルーツずかん">
+      <header class="bar">
+        <button type="button" class="icon-btn" data-back="title" aria-label="タイトルへもどる">←</button>
+        <h2 class="bar-title">フルーツずかん</h2>
+        <span class="bar-right"></span>
+      </header>
+      <div class="collect-head">
+        <p class="collect-count" id="zukan-count"></p>
+        <div class="gauge" aria-hidden="true"><i id="zukan-gauge"></i></div>
+      </div>
+      <div class="collect-body">
+        <div id="zukan-grid" class="zukan-grid" role="list"></div>
+        <p id="zukan-detail" class="zukan-detail" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <!-- トロフィー -->
+    <section id="screen-trophy" class="screen" aria-label="トロフィー">
+      <header class="bar">
+        <button type="button" class="icon-btn" data-back="title" aria-label="タイトルへもどる">←</button>
+        <h2 class="bar-title">トロフィー</h2>
+        <span class="bar-right"></span>
+      </header>
+      <div class="collect-head">
+        <p class="collect-count" id="trophy-count"></p>
+        <div class="gauge gold" aria-hidden="true"><i id="trophy-gauge"></i></div>
+      </div>
+      <div class="collect-body">
+        <div id="trophy-complete" class="trophy-complete" hidden>
+          <div class="tc-crown" aria-hidden="true">👑</div>
+          <p class="tc-title">フルーツめいろ 完全制覇！</p>
+          <p class="tc-sub">全250ステージクリア達成！</p>
+        </div>
+        <div id="trophy-list" class="trophy-list" role="list"></div>
+      </div>
     </section>
 
     <!-- ステージ選択 -->
@@ -180,8 +226,18 @@
         </div>
         <button type="button" id="btn-reset" class="btn ghost setting-reset"><span aria-hidden="true">↻</span> <span class="label">はじめから</span></button>
         <button type="button" id="btn-settings-close" class="btn primary">とじる</button>
+        <!-- タイトル画面から開いたときだけ表示 -->
+        <a id="link-portal" class="btn secondary portal-link" href="https://taka-t-p.github.io/math-app-portal/" hidden>KEC数学科ラボへ <span aria-hidden="true">↗</span></a>
       </div>
     </div>
+
+    <!-- 報酬の演出（フルーツ解放・トロフィー獲得・完全制覇） -->
+    <div id="reward" class="reward-overlay" hidden>
+      <div class="reward-card" role="dialog" aria-modal="true" aria-labelledby="reward-title"></div>
+    </div>
+
+    <!-- 短いお知らせ（フルーツをセットした など） -->
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   </main>
 
   <script type="module" src="js/main.js"></script>
