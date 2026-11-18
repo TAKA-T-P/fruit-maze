@@ -29,19 +29,30 @@ export function createStore(backend = safeLocalStorage()) {
   }
 
   return {
-    /** クリアを記録する。初回クリアかどうかを返す。 */
-    recordClear(puzzleId, now = new Date()) {
+    /**
+     * クリアを記録する。初回クリアかどうかを返す。
+     * @param {{usedHint?: boolean}} [opt] そのプレイでヒントを使ったか
+     *   ヒントなしで一度でもクリアすると hintFree: true になる（あとでヒントを使ってクリアしても消えない）。
+     *   この項目がない記録（ヒントの記録を始める前のクリア）は、ヒントなしとみなす。
+     */
+    recordClear(puzzleId, now = new Date(), { usedHint = false } = {}) {
       const rec = data.cleared[puzzleId];
       if (rec) {
         rec.clearCount = (rec.clearCount || 1) + 1;
+        if (!usedHint) rec.hintFree = true;
         write();
         return { firstClear: false, clearCount: rec.clearCount };
       }
-      data.cleared[puzzleId] = { firstClearedAt: now.toISOString(), clearCount: 1 };
+      data.cleared[puzzleId] = { firstClearedAt: now.toISOString(), clearCount: 1, hintFree: !usedHint };
       write();
       return { firstClear: true, clearCount: 1 };
     },
     isCleared(puzzleId) { return Object.prototype.hasOwnProperty.call(data.cleared, puzzleId); },
+    /** ヒントなしでクリアしたことがあるか（ステージ選択の ★） */
+    isHintFreeCleared(puzzleId) {
+      const rec = data.cleared[puzzleId];
+      return !!rec && rec.hintFree !== false;
+    },
     getRecord(puzzleId) { return data.cleared[puzzleId] || null; },
     clearedIds() { return Object.keys(data.cleared); },
     /** 初回クリア数（ユニークな問題ID数）。同じ問題を何度クリアしても 1。 */

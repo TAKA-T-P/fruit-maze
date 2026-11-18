@@ -706,6 +706,8 @@ button { font-family: inherit; touch-action: manipulation; }
 .result-fruit { font-family: var(--emoji); font-size: 3rem; animation: bob 1.6s ease-in-out infinite; }
 .result-title { margin: 0; font-size: 2.2rem; color: var(--red); }
 .result-badge { display: inline-block; margin: 8px 0 4px; padding: 4px 14px; border-radius: 99px; font-weight: 800; background: #fff; color: var(--ink-soft); border: 2px solid var(--line-soft); }
+.result-hint { margin: 6px 0 0; font-size: .82rem; font-weight: 700; color: var(--ink-soft); line-height: 1.5; }
+.result-hint.star { color: #c77c00; font-size: .95rem; font-weight: 800; }
 .result-badge.first { background: #fff3bf; color: #9a6700; border-color: #f0c419; }
 .result-stats { display: flex; justify-content: center; gap: 12px; margin: 14px 0 18px; }
 .result-stats div { background: #fff; border-radius: 16px; padding: 8px 16px; border: 2px solid var(--line-soft); min-width: 110px; }

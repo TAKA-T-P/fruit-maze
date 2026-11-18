@@ -321,3 +321,35 @@ test('タイマー：一時停止している間（設定画面など）は時�
   assert.equal(sw.elapsed(), 10000);
   assert.equal(sw.running, false);
 });
+
+test('ヒントを使ったクリアでは ★ にならない。あとでヒントなしでクリアすると ★ になる', () => {
+  const backend = memoryStorage();
+  const s = createStore(backend);
+  s.recordClear('easy-001', new Date(), { usedHint: true });
+  assert.equal(s.isCleared('easy-001'), true, 'クリアは記録される（フルーツの解放などに数える）');
+  assert.equal(s.isHintFreeCleared('easy-001'), false, 'ヒントを使ったので ★ なし');
+  s.recordClear('easy-001', new Date(), { usedHint: true });
+  assert.equal(s.isHintFreeCleared('easy-001'), false);
+  s.recordClear('easy-001', new Date(), { usedHint: false });
+  assert.equal(s.isHintFreeCleared('easy-001'), true, 'ヒントなしでクリア → ★');
+  s.recordClear('easy-001', new Date(), { usedHint: true });
+  assert.equal(s.isHintFreeCleared('easy-001'), true, 'あとでヒントを使っても ★ は消えない');
+  assert.equal(s.getRecord('easy-001').clearCount, 4);
+  // ヒントなしの初回クリア
+  s.recordClear('easy-002');
+  assert.equal(s.isHintFreeCleared('easy-002'), true);
+  // 読み込み直しても残る
+  const s2 = createStore(backend);
+  assert.equal(s2.isHintFreeCleared('easy-001'), true);
+  assert.equal(s2.isHintFreeCleared('easy-003'), false, 'クリアしていない');
+});
+
+test('ヒントの記録を始める前のクリア記録は、ヒントなしとみなす（★ は消えない）', () => {
+  const backend = memoryStorage();
+  backend.setItem(STORAGE_KEY, JSON.stringify({ version: 1, lastDifficulty: 1, cleared: { 'easy-005': { firstClearedAt: '2026-11-18T09:00:00.000Z', clearCount: 2 } } }));
+  const s = createStore(backend);
+  assert.equal(s.isHintFreeCleared('easy-005'), true);
+  s.recordClear('easy-005', new Date(), { usedHint: true });
+  assert.equal(s.isHintFreeCleared('easy-005'), true);
+  assert.equal(s.getRecord('easy-005').clearCount, 3);
+});

@@ -34,6 +34,7 @@ const state = {
   stopwatch: new Stopwatch(),
   lastPuzzleId: {},   // 難易度ごとの直前の問題（同じ問題の連続出題を避ける）
   stage: null,        // 遊んでいるステージ番号（1〜）
+  hintUsed: false,    // このプレイでヒントを使ったか（ヒントなしでクリアしたステージだけ ★）
   fromRandom: false,  // 「ランダム」で始めたか（結果画面の「つぎの問題」の動きが変わる）
   resultTimer: null,
   memo: null,         // 推理メモ（問題ごとに新しく作る。保存しない）
@@ -158,10 +159,11 @@ function renderStageGrid() {
     btn.dataset.stage = String(i + 1);
     btn.setAttribute('role', 'listitem');
     const done = state.store.isCleared(p.id);
+    const star = done && state.store.isHintFreeCleared(p.id); // ★ はヒントなしでクリアしたときだけ
     if (done) btn.classList.add('cleared');
     if (p.id === lastId) btn.classList.add('last');
-    btn.setAttribute('aria-label', `ステージ${i + 1}${done ? '（クリアずみ）' : ''}`);
-    btn.innerHTML = `<span class="stage-no">${i + 1}</span>${done ? '<span class="stage-star" aria-hidden="true">★</span>' : ''}`;
+    btn.setAttribute('aria-label', `ステージ${i + 1}${done ? (star ? '（ヒントなしでクリアずみ）' : '（クリアずみ）') : ''}`);
+    btn.innerHTML = `<span class="stage-no">${i + 1}</span>${star ? '<span class="stage-star" aria-hidden="true">★</span>' : ''}`;
     return btn;
   }));
 }
@@ -203,6 +205,7 @@ function startPuzzle(puzzle) {
   state.game = new PuzzleGame(puzzle);
   state.memo = new MemoBoard(puzzle);   // 問題が変わったらメモは新しく
   state.hint = new HintSession(puzzle);
+  state.hintUsed = false;               // ステージを始めるたび（もういちど・次のステージを含む）にリセット
   closeHint();
   setMode('route');
   state.renderer = new BoardRenderer($('#board-area'), puzzle, state.fruit, { clueStyle: state.settings.get('clueStyle') });
@@ -290,6 +293,7 @@ function renderHint(view) {
 }
 function openHint() {
   if (!state.game || state.game.status === STATUS.CLEARED) return;
+  state.hintUsed = true; // ヒントを開いたら「ヒントを使った」（はじめからやり直しても、このプレイでは使ったまま）
   hintPanel.show();
   $('#game-ctrl').hidden = true;
   renderHint(state.hint.open(boardState())); // 盤面が変わっていなければ前回の段階のまま
@@ -375,7 +379,7 @@ function onCleared() {
   sound.play('clear');
   setMessage('やったね！', 'success');
   state.renderer.celebrate();
-  const rec = state.store.recordClear(state.puzzle.id);
+  const rec = state.store.recordClear(state.puzzle.id, new Date(), { usedHint: state.hintUsed });
   // 報酬（フルーツ解放・トロフィー獲得）はまとめて判定し、クリア演出のあとに 1 回の流れで見せる
   const rewards = pendingRewards(currentStats(), state.collection, totalOf);
   const next = () => (rewards.isEmpty ? showResult(rec) : showRewards(rewards, () => showResult(rec)));
@@ -394,6 +398,10 @@ function showResult(rec) {
   const badge = $('#result-badge');
   badge.textContent = rec.firstClear ? '🎉 はじめて クリア！' : `${rec.clearCount}回めの クリア`;
   badge.classList.toggle('first', rec.firstClear);
+  // ヒントの使用：ステージ選択の ★ はヒントなしでクリアしたときだけ付く
+  const hintNote = $('#result-hint');
+  hintNote.textContent = state.hintUsed ? '💡 ヒントを使ったよ。ヒントなしでクリアすると ★ がつくよ' : '★ ヒントなしで クリア！';
+  hintNote.classList.toggle('star', !state.hintUsed);
   $('#result-fruit').textContent = state.fruit.emoji;
   $('#result-size').textContent = `ステージ${state.stage}・${state.puzzle.rows}×${state.puzzle.cols}`;
   const last = state.stage >= state.library.count(state.level);
