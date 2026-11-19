@@ -161,7 +161,7 @@ export class HowTo {
       {
         title: '③ 通れない道',
         puzzle: R, tools: [],
-        text: 'ななめに進んだり、一度通ったマスをもう一度通ることはできないよ。何もないマスにも進めないよ。<br>その列の数字をこえて進むこともできないよ。例えば、<b>2</b>の列で3マス目に進むことはできないよ。',
+        text: 'ななめに進んだり、一度通ったマスをもう一度通ることはできないよ。何もないマスにも進めないよ。<br>その列の数字をこえて進むこともできないよ。例えば、<b>②</b>の列で3マス目には進めないよ。',
         illust: () => `<div class="mini-list">${[
           miniIllust({ rows: 2, cols: 2, route: [[1, 0]], from: [1, 0], to: [0, 1], fruit: this.fruit.emoji, caption: 'ななめには進めない' }),
           miniIllust({ rows: 2, cols: 2, route: [[0, 0], [0, 1], [1, 1], [1, 0]], from: [1, 0], to: [0, 0], fruit: this.fruit.emoji, caption: '一度通ったマスは通れない' }),
