@@ -247,7 +247,8 @@ button { font-family: inherit; touch-action: manipulation; }
   display: flex; flex-direction: column; align-items: center;
   max-width: 560px; width: 100%; margin: 0 auto;
 }
-.howto-title { margin: 6px 0 10px; font-size: 1.25rem; color: var(--red); text-align: center; }
+.howto-title { color: var(--red); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }  /* 上のバーに項目名を表示 */
+.howto-body > .howto-text:first-child { margin-top: 8px; }
 .howto-board { width: 100%; display: flex; justify-content: center; padding: 6px 0; }
 .howto-text { font-size: 1rem; line-height: 1.7; font-weight: 700; margin: 0 0 6px; text-align: left; width: 100%; }
 .howto-task { font-weight: 800; text-align: center; min-height: 2.4em; margin: 4px 0 8px; line-height: 1.6; color: var(--ink-soft); }
@@ -296,8 +297,9 @@ button { font-family: inherit; touch-action: manipulation; }
 .chip-done, .chip-over { padding: 1px 8px; border-radius: 8px; color: #fff; }
 .chip-done { background: var(--green); }
 .chip-over { background: var(--goal); }
-.howto-nav .btn { white-space: nowrap; padding: 12px 16px; }
-.howto-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px 16px; max-width: 560px; width: 100%; margin: 0 auto; }
+.howto-nav .btn { white-space: nowrap; padding: 6px 14px; min-height: 40px; font-size: .95rem; box-shadow: 0 3px 0 rgba(120, 60, 40, .15); }
+.howto-nav .btn.primary { box-shadow: 0 3px 0 var(--red-dark); }
+.howto-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 16px calc(env(safe-area-inset-bottom) + 8px); max-width: 560px; width: 100%; margin: 0 auto; }
 .howto-dots { display: flex; gap: 6px; }
 .howto-dots .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line-soft); }
 .howto-dots .dot.on { background: var(--red); }
@@ -774,6 +776,10 @@ button { font-family: inherit; touch-action: manipulation; }
    メモ（塗り＋記号）と区別できるよう、ヒントは「枠」で表す。ルートの線は隠さない。 */
 .cell.hint-band { background: #fff1a8; }
 .clue.hint-band { box-shadow: 0 0 0 4px #ffe066; }
+/* あそびかたの図では、黄色の行・列をもう少し濃くして分かりやすく */
+.howto-board .cell.hint-band { background: #ffd43b; }
+.howto-board .cell.hint-band:not(.visited)::before { background: #fff3bf; }
+.howto-board .clue.hint-band { box-shadow: 0 0 0 4px #fcc419; }
 .cell.hint-focus::before { outline: 3px solid #f08c00; outline-offset: 1px; }
 .clue.hint-focus { border-color: #f08c00; box-shadow: 0 0 0 4px rgba(240, 140, 0, .35); }
 /* 確定するマス：太い実線＋光る輪（GOAL の点線や、注目の細いオレンジ枠と見分けられるように） */
@@ -1112,7 +1118,11 @@ button { font-family: inherit; touch-action: manipulation; }
 /* あそびかた：練習用の 5ボタン（プレイ画面と同じ並び） */
 .howto-tools .howto-five { width: 100%; max-width: 420px; }
 .howto-tools .howto-five[hidden] { display: none; }
-.howto-tools .howto-five .btn { min-height: 48px; padding: 6px 2px; }
+.howto-tools { width: 100%; }
+.howto-tools .howto-five { justify-content: center; }
+/* ボタンの幅は 5 つ並ぶとき（⑥）と同じ。💡がない ④⑤ でも同じ大きさで中央にならべる */
+.howto-tools .howto-five .btn { min-height: 48px; padding: 6px 2px; flex: 0 0 calc((100% - 24px) / 5.35); }
+.howto-tools .howto-five .five-btn[data-mode="route"] { flex-basis: calc((100% - 24px) / 5.35 * 1.35); }
 .howto-tools .howto-five .five-btn[data-mode="route"] { font-size: .95rem; }
 .howto-tools .howto-five .five-btn[data-mode="memo-on"], .howto-tools .howto-five .five-btn[data-mode="memo-off"] { font-size: 1.35rem; }
 .howto-tools .howto-five .five-hint { font-size: 1.3rem; }
@@ -1122,8 +1132,8 @@ button { font-family: inherit; touch-action: manipulation; }
 .howto-nav .btn { flex: 0 1 auto; min-width: 0; }
 .howto-nav .howto-dots { flex: 0 1 auto; min-width: 0; }
 @media (max-width: 400px) {
-  .howto-nav { gap: 6px; padding: 10px 12px 14px; }
-  .howto-nav .btn { padding: 12px 12px; }
+  .howto-nav { gap: 6px; padding: 6px 12px calc(env(safe-area-inset-bottom) + 8px); }
+  .howto-nav .btn { padding: 6px 12px; }
   .howto-dots { gap: 4px; }
   .howto-dots .dot { width: 8px; height: 8px; }
 }

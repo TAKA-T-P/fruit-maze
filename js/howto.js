@@ -145,7 +145,7 @@ export class HowTo {
         puzzle: R, interactive: false, tools: [], showSolution: true,
         text: `右の数字は、その<b>行（よこ）</b>で通るフルーツの数。上の数字は、その<b>列（たて）</b>で通る数だよ。下は START から GOAL までの正解の道。どの行・列も、通ったフルーツの数が数字と同じになっているね！`,
         setup: () => this.renderer.showHint({ lines: [{ kind: 'row', index: bigRow }], clues: [{ kind: 'row', index: bigRow }] }),
-        task: () => `黄色の行の数字は「${R.rowClues[bigRow]}」。この行では <b>${R.rowClues[bigRow]}つ</b> のフルーツを通っているよ！<br><small>START と GOAL の ○ は「かならず通る」しるしだよ。</small>`,
+        task: () => `黄色の行の数字は「${R.rowClues[bigRow]}」。この行では <b>${R.rowClues[bigRow]}つ</b> のフルーツを通っているよ！<br><small>START と GOAL の ○ は「かならず通る」印だよ。</small>`,
       },
       {
         title: '② ルートをつなごう',
@@ -203,7 +203,7 @@ export class HowTo {
       {
         title: '⑥ ミニチャレンジ',
         puzzle: pz.challenge, tools: ['mode', 'hint', 'reset'],
-        text: 'さいごに 4×4 の問題を解いてみよう！ ○・×のメモも使えるよ。<br>💡を押すとヒントが見られるよ。',
+        text: 'さいごに 4×4 の問題を解いてみよう！<br>💡を押すとヒントが見られるよ。',
         task: () => {
           if (this.game.status === STATUS.CLEARED) return '<span class="ok big">🎉 じゅんびOK！ フルーツめいろに挑戦しよう！</span>';
           if (this.game.status === STATUS.AT_GOAL) return '数字がそろっていないよ。ひとつ前のフルーツをタップして、道をなおそう';
