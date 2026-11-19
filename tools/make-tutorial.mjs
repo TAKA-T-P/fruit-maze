@@ -11,6 +11,7 @@ import { deduce } from '../js/deduce.js';
 import { analyzeBoard } from '../js/hint.js';
 import { PuzzleGame, MOVE } from '../js/game.js';
 import { canonicalKey } from './symmetry.mjs';
+import { ratePuzzle } from './rating.mjs';
 import { readPuzzleFile, formatPuzzle, ROOT } from './puzzle-io.mjs';
 
 export const TUTORIAL_FILE = resolve(ROOT, 'data/tutorial.json');
@@ -43,8 +44,8 @@ export const PAGE_RULES = {
     const c = analyzeBoard(p, { route: [p.solution[0]], memo: [] }).candidates[0];
     return c && c.rule.startsWith('line-');
   })(),
-  // 7ページ：ミニチャレンジ。少しだけ考える 4×4
-  challenge: (p, r) => r.trialWaves === 0 && r.waves >= 4 && p.solution.length >= 9,
+  // 6ページ：ミニチャレンジ。はじめてでも解ける、やさしい 4×4（推理 3 段階以内・難易度スコア 8 以下・仮定なし）
+  challenge: (p, r) => r.trialWaves === 0 && r.waves <= 3 && p.solution.length >= 7 && ratePuzzle(p).score <= 8,
 };
 
 export function makeTutorial(seed = 777) {
