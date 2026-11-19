@@ -203,11 +203,11 @@ test('設定：既定は 効果音ON・数字「3」表示。変更は保存さ�
   assert.deepEqual(createSettings(null).all(), { ...DEFAULT_SETTINGS }, '保存できない環境でも動く');
 });
 
-test('設定：ボタン表示（きりかえ／5ボタン）を保存できる', () => {
+test('設定：ボタン表示の設定はなくなった（5ボタンが標準）。古い保存データの buttons は無視する', () => {
   const b = mem();
+  b.setItem(SETTINGS_KEY, JSON.stringify({ sound: false, buttons: 'cycle' }));
   const s = createSettings(b);
-  assert.equal(s.get('buttons'), 'cycle');
-  assert.equal(s.set('buttons', 'five'), true);
-  assert.equal(s.set('buttons', 'six'), false);
-  assert.equal(createSettings(b).get('buttons'), 'five');
+  assert.equal(s.get('buttons'), undefined);
+  assert.equal(s.get('sound'), false, 'ほかの設定はそのまま');
+  assert.equal(s.set('buttons', 'five'), false);
 });

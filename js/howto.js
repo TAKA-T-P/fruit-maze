@@ -1,13 +1,14 @@
-// あそびかた（7 ページのチュートリアル）。盤面は本編と同じエンジン・描画・操作・メモ・ヒントを使う。
+// あそびかた（6 ページのチュートリアル）。盤面は本編と同じエンジン・描画・操作・メモ・ヒントを使う。
 // 練習の結果はクリア記録に入れない（storage を使わない）。
 //
-//   1 数字の意味 / 2 ルートをつなごう / 3 通れない道 / 4 数字から推理しよう
-//   5 推理メモを使おう / 6 ヒントを使おう / 7 ミニチャレンジ
+//   1 数字の意味 / 2 ルートをつなごう / 3 通れない道 / 4 ○印をつけよう
+//   5 ×印をつけよう / 6 ミニチャレンジ（ヒントの使い方もここで説明）
+// 操作ボタンはプレイ画面と同じ 5ボタン（ルート／○／×／消す／💡）。
 
 import { PuzzleGame, STATUS, MOVE } from './game.js';
 import { BoardRenderer } from './renderer.js';
 import { BoardControls } from './controls.js';
-import { MemoBoard, MEMO, nextMode } from './memo.js';
+import { MemoBoard, MEMO } from './memo.js';
 import { HintSession, lineName } from './hint.js';
 import { HintPanel } from './hint-ui.js';
 import { deduce } from './deduce.js';
@@ -61,14 +62,6 @@ function miniIllust({ rows, cols, route = [], blanks = [], from, to, clue, capti
   </figure>`;
 }
 
-// 操作モードのボタン表示（プレイ画面と同じ：ルート → ○つけ → ×つけ → 消す）
-const MODE_VIEW = {
-  'route': { icon: '🍓', label: 'ルート' }, // アイコンは選んでいるフルーツにする（_setMode）
-  'memo-on': { icon: '✏️', label: '○つけ' },
-  'memo-off': { icon: '✏️', label: '×つけ' },
-  'memo-erase': { icon: '🧽', label: '消す' },
-};
-
 export class HowTo {
   /**
    * @param {HTMLElement} root     #screen-howto
@@ -113,10 +106,16 @@ export class HowTo {
     });
 
     this.toolsEl.addEventListener('click', (e) => {
+      const m = e.target.closest('.five-btn');
+      if (m) {
+        if (m.disabled) return;
+        sound.play('tap');
+        this._setMode(m.dataset.mode);
+        return;
+      }
       const t = e.target.closest('[data-tool]');
-      if (!t || t.disabled) return;
+      if (!t || t.disabled || t.dataset.tool === 'mode') return;
       sound.play('tap');
-      if (t.dataset.tool === 'mode') this._setMode(nextMode(this.mode));
       if (t.dataset.tool === 'reset') { this.game.reset(); this.memo.clear(); this.page.onReset?.(); this.controls.setEnabled(true); this.renderer.clearFx(); this.refresh(); }
       if (t.dataset.tool === 'hint') this._openHint();
     });
@@ -175,14 +174,14 @@ export class HowTo {
         title: '④ ○印をつけよう',
         puzzle: pz.deduce, tools: ['mode'],
         text: allLine
-          ? `${lineName(allLine.line)}には、フルーツが${allLine.cells.length}個あって、数字も${allLine.clue}。だから、全部通るね！ 下のボタンで「○つけ」にして、○を付けよう！`
-          : '下のボタンで「○つけ」にして、通ると思うマスに ○ を付けてみよう。',
+          ? `${lineName(allLine.line)}には、フルーツが${allLine.cells.length}個あって、数字も${allLine.clue}。だから、全部通るね！ 下の「○」ボタンを押して、○を付けよう！`
+          : '下の「○」ボタンを押して、通ると思うマスに ○ を付けてみよう。',
         setup: () => allLine && this.renderer.showHint({ lines: [allLine.line], clues: [allLine.line] }),
         task: () => {
           if (!allLine) return '';
           const n = allLine.cells.filter(([r, c]) => this.memo.get(r, c) === MEMO.ON).length;
           if (n === allLine.cells.length) return '<span class="ok">✓ 正解！ 数字から、かならず通るマスが分かったね</span>';
-          if (this.mode !== 'memo-on') return 'ボタンを押すたびに ルート → ○つけ → ×つけ → 消す と変わるよ。「○つけ」にしてね';
+          if (this.mode !== 'memo-on') return '下の「○」ボタンを押してね';
           return `黄色の${allLine.line.kind === 'row' ? '行' : '列'}のフルーツをタップして ○ を付けよう。なぞると続けて付けられるよ（○ ${n} / ${allLine.cells.length}）`;
         },
       },
@@ -190,37 +189,25 @@ export class HowTo {
         title: '⑤ ×印をつけよう',
         puzzle: pz.memo, tools: ['mode'],
         text: zeroLine
-          ? `${lineName(zeroLine.line)}の数字は0。だから、どのフルーツも通らないね。下のボタンで「×つけ」にして、×を付けよう！`
-          : '下のボタンで「×つけ」にして、通らないと思うマスに × を付けてみよう。',
+          ? `${lineName(zeroLine.line)}の数字は0。だから、どのフルーツも通らないね。下の「×」ボタンを押して、×を付けよう！`
+          : '下の「×」ボタンを押して、通らないと思うマスに × を付けてみよう。',
         setup: () => zeroLine && this.renderer.showHint({ lines: [zeroLine.line], clues: [zeroLine.line] }),
         task: () => {
           if (!zeroLine) return '';
           const n = zeroLine.cells.filter(([r, c]) => this.memo.get(r, c) === MEMO.OFF).length;
           if (n === zeroLine.cells.length) return '<span class="ok">✓ できた！ ○や×はメモだから、あとで「消す」で消すこともできるよ</span>';
-          if (this.mode !== 'memo-off') return 'ボタンを押すたびに ルート → ○つけ → ×つけ → 消す と変わるよ。「×つけ」にしてね';
+          if (this.mode !== 'memo-off') return '下の「×」ボタンを押してね';
           return `フルーツをタップして × を付けよう。なぞると続けて付けられるよ（× ${n} / ${zeroLine.cells.length}）`;
         },
       },
       {
-        title: '⑥ ヒントを使おう',
-        puzzle: pz.hint, tools: ['hint'],
-        text: 'こまったら「💡 ヒント」を押そう。「次へ」で、ヒント1 → 2 → 3 とだんだんくわしくなるよ。',
-        setup: () => { this.maxHintLevel = 0; },
-        onHint: (view) => { if (view && view.kind !== 'none') this.maxHintLevel = Math.max(this.maxHintLevel, view.level); },
-        task: () => {
-          if (this.maxHintLevel >= 3) return '<span class="ok">✓ ヒント3まで見られたね！ ヒントは道やメモを勝手に変えないよ。自分で進めてみよう</span>';
-          if (this.maxHintLevel > 0) return `ヒント${this.maxHintLevel}まで見たよ。「次へ」を押してみよう`;
-          return '下の「💡 ヒント」を押してみよう';
-        },
-      },
-      {
-        title: '⑦ ミニチャレンジ',
+        title: '⑥ ミニチャレンジ',
         puzzle: pz.challenge, tools: ['mode', 'hint', 'reset'],
-        text: 'さいごに 4×4 の問題を解いてみよう！ メモやヒントも使えるよ。',
+        text: 'さいごに 4×4 の問題を解いてみよう！ ○・×のメモも使えるよ。<br>💡を押すとヒントが見られるよ。',
         task: () => {
           if (this.game.status === STATUS.CLEARED) return '<span class="ok big">🎉 じゅんびOK！ フルーツめいろに挑戦しよう！</span>';
           if (this.game.status === STATUS.AT_GOAL) return '数字がそろっていないよ。ひとつ前のフルーツをタップして、道をなおそう';
-          return 'STARTからGOALまで、数字をそろえてつなごう';
+          return '<span class="one-line">STARTからGOALまで、数字をそろえてつなごう</span>';
         },
       },
     ];
@@ -240,7 +227,11 @@ export class HowTo {
     this.stepEl.textContent = `${this.index + 1} / ${this.pages.length}`;
     [...this.dotsEl.children].forEach((d, j) => d.classList.toggle('on', j === this.index));
     this.prevBtn.disabled = this.index === 0;
-    this.nextBtn.textContent = this.index === this.pages.length - 1 ? 'ゲームをはじめる ▶' : 'つぎへ ▶';
+    this.nextBtn.textContent = this.index === this.pages.length - 1 ? 'はじめる ▶' : 'つぎへ ▶';
+    // ページを切り替えたら、上下のスクロール位置を一番上にもどす
+    this.root.querySelector('.howto-body').scrollTop = 0;
+    this.root.scrollTop = 0;
+    window.scrollTo(0, 0);
 
     const puzzle = page.puzzle;
     this.game = new PuzzleGame(puzzle);
@@ -277,7 +268,7 @@ export class HowTo {
     const tool = (name) => this.toolsEl.querySelector(`[data-tool="${name}"]`);
     tool('reset').disabled = this.game.route.length <= 1 && !this.memo.hasAny();
     tool('hint').disabled = cleared;
-    tool('mode').disabled = cleared;
+    this.toolsEl.querySelectorAll('.five-btn').forEach((b) => { b.disabled = cleared; });
     this.taskEl.innerHTML = this.page.task ? this.page.task() : '';
   }
 
@@ -311,13 +302,11 @@ export class HowTo {
 
   _setMode(mode, refresh = true) {
     this.mode = mode;
-    const btn = this.toolsEl.querySelector('[data-tool="mode"]');
-    const v = MODE_VIEW[mode] || MODE_VIEW.route;
-    btn.dataset.mode = mode;
-    btn.querySelector('.mode-icon').textContent = mode === 'route' ? this.fruit.emoji : v.icon;
-    btn.querySelector('.mode-label').textContent = v.label;
-    btn.setAttribute('aria-label', `操作モード：${v.label}（押すと切り替え）`);
-    btn.querySelectorAll('.mode-dots i').forEach((d, i) => d.classList.toggle('on', i === Object.keys(MODE_VIEW).indexOf(mode)));
+    this.toolsEl.querySelectorAll('.five-btn').forEach((b) => {
+      const on = b.dataset.mode === mode;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
     if (refresh && this.page) this.refresh();
   }
 

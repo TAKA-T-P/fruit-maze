@@ -1108,3 +1108,22 @@ button { font-family: inherit; touch-action: manipulation; }
 /* ずかんの「ランダム」カード */
 .zukan-card.random-card .zc-emoji { animation: bob 2s ease-in-out infinite; }
 .zukan-card.random-card .zc-name { color: #6b3fb8; }
+
+/* あそびかた：練習用の 5ボタン（プレイ画面と同じ並び） */
+.howto-tools .howto-five { width: 100%; max-width: 420px; }
+.howto-tools .howto-five[hidden] { display: none; }
+.howto-tools .howto-five .btn { min-height: 48px; padding: 6px 2px; }
+.howto-tools .howto-five .five-btn[data-mode="route"] { font-size: .95rem; }
+.howto-tools .howto-five .five-btn[data-mode="memo-on"], .howto-tools .howto-five .five-btn[data-mode="memo-off"] { font-size: 1.35rem; }
+.howto-tools .howto-five .five-hint { font-size: 1.3rem; }
+/* 1 行に収める文（幅のせまい画面では少し小さく） */
+.howto-task .one-line { white-space: nowrap; font-size: min(1rem, 4.1vw); }
+/* 下のボタン：幅のせまい画面でもはみ出さない */
+.howto-nav .btn { flex: 0 1 auto; min-width: 0; }
+.howto-nav .howto-dots { flex: 0 1 auto; min-width: 0; }
+@media (max-width: 400px) {
+  .howto-nav { gap: 6px; padding: 10px 12px 14px; }
+  .howto-nav .btn { padding: 12px 12px; }
+  .howto-dots { gap: 4px; }
+  .howto-dots .dot { width: 8px; height: 8px; }
+}

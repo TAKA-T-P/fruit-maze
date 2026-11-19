@@ -60,12 +60,13 @@
         <p class="howto-task" aria-live="polite"></p>
         <!-- 練習用の操作ボタン（ページごとに必要なものだけ表示） -->
         <div class="howto-tools">
-          <button type="button" class="btn mode-cycle" data-tool="mode" data-mode="route">
-            <span class="mode-icon" aria-hidden="true">🍓</span>
-            <span class="mode-label">ルート</span>
-            <span class="mode-dots" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-          </button>
-          <button type="button" class="btn hint-btn" data-tool="hint"><span aria-hidden="true">💡</span> ヒント</button>
+          <div class="ctrl-row ctrl-five howto-five" data-tool="mode" role="group" aria-label="操作モード">
+            <button type="button" class="btn five-btn" data-mode="route" aria-pressed="true">ルート</button>
+            <button type="button" class="btn five-btn" data-mode="memo-on" aria-pressed="false" aria-label="○を付ける">○</button>
+            <button type="button" class="btn five-btn" data-mode="memo-off" aria-pressed="false" aria-label="×を付ける">×</button>
+            <button type="button" class="btn five-btn" data-mode="memo-erase" aria-pressed="false" aria-label="○・×を消す">消す</button>
+            <button type="button" class="btn hint-btn five-hint" data-tool="hint" aria-label="ヒント">💡</button>
+          </div>
           <button type="button" class="btn ghost" data-tool="reset"><span aria-hidden="true">↻</span> はじめから</button>
         </div>
         <div class="howto-hint"></div>
@@ -200,17 +201,8 @@
       <!-- 短いお知らせ（数字をこえた・ゴールで数字が合わない など）。盤面の上に重ねて表示する -->
       <div id="game-msg" class="game-msg" aria-live="polite"></div>
       <div class="game-ctrl" id="game-ctrl">
-        <div class="ctrl-row">
-          <!-- 押すたびに ルート → ○つけ → ×つけ → 消す → ルート -->
-          <button type="button" id="btn-mode" class="btn mode-cycle" data-mode="route" aria-label="操作モード：ルート（押すと切り替え）">
-            <span class="mode-icon" aria-hidden="true">🍓</span>
-            <span class="mode-label">ルート</span>
-            <span class="mode-dots" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-          </button>
-          <button type="button" id="btn-hint" class="btn hint-btn"><span aria-hidden="true">💡</span> ヒント</button>
-        </div>
-        <!-- 5ボタン表示（設定で切り替え）：ルート／○／×／消す／💡 -->
-        <div class="ctrl-row ctrl-five" id="ctrl-five" role="group" aria-label="操作モード" hidden>
+        <!-- 操作ボタン：ルート／○／×／消す／💡 -->
+        <div class="ctrl-row ctrl-five" id="ctrl-five" role="group" aria-label="操作モード">
           <button type="button" class="btn five-btn" data-mode="route" aria-pressed="true">ルート</button>
           <button type="button" class="btn five-btn" data-mode="memo-on" aria-pressed="false" aria-label="○を付ける">○</button>
           <button type="button" class="btn five-btn" data-mode="memo-off" aria-pressed="false" aria-label="×を付ける">×</button>
@@ -269,13 +261,6 @@
           </div>
         </div>
         <p class="setting-note" id="clue-note"></p>
-        <div class="setting-row">
-          <span class="setting-name">ボタン表示</span>
-          <div class="seg" data-setting="buttons" role="group" aria-label="操作ボタンの表示">
-            <button type="button" data-value="cycle">きりかえ</button>
-            <button type="button" data-value="five">5ボタン</button>
-          </div>
-        </div>
         <button type="button" id="btn-reset" class="btn ghost setting-reset"><span aria-hidden="true">↻</span> <span class="label">はじめから</span></button>
         <button type="button" id="btn-settings-close" class="btn primary">とじる</button>
         <!-- タイトル画面から開いたときだけ表示 -->

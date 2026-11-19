@@ -267,8 +267,6 @@ function refresh() {
   const cleared = g.status === STATUS.CLEARED;
   state.renderer.update(g, state.memo);
   $('#btn-reset').disabled = (g.route.length <= 1 && !state.memo.hasAny()) || cleared;
-  $('#btn-hint').disabled = cleared;
-  $('#btn-mode').disabled = cleared;
   $('#btn-hint-five').disabled = cleared;
   document.querySelectorAll('#ctrl-five .five-btn').forEach((b) => { b.disabled = cleared; });
 }
@@ -285,13 +283,6 @@ const MODE_VIEW = {
 };
 function setMode(mode) {
   state.mode = mode;
-  const v = MODE_VIEW[mode];
-  const btn = $('#btn-mode');
-  btn.dataset.mode = mode;
-  btn.querySelector('.mode-icon').textContent = mode === 'route' ? state.fruit.emoji : v.icon; // ルートは選んでいるフルーツ
-  btn.querySelector('.mode-label').textContent = v.label;
-  btn.setAttribute('aria-label', `操作モード：${v.label}（押すと切り替え）`);
-  btn.querySelectorAll('.mode-dots i').forEach((d, i) => d.classList.toggle('on', i === Object.keys(MODE_VIEW).indexOf(mode)));
   $('#screen-game').dataset.mode = mode;
   $('#screen-game').classList.toggle('memo-mode', mode !== 'route');
   document.querySelectorAll('#ctrl-five .five-btn').forEach((b) => {
@@ -306,7 +297,6 @@ function cycleMode() {
   const tip = MODE_VIEW[state.mode].tip;
   setMessage(tip, 'hint', tip ? 1800 : 0);
 }
-$('#btn-mode').addEventListener('click', () => { sound.play('tap'); cycleMode(); });
 
 // ---- ヒント ----
 const hintPanel = new HintPanel($('#game-hint'), {
@@ -331,7 +321,6 @@ function closeHint() {
   $('#game-ctrl').hidden = false;
   if (state.renderer) state.renderer.clearHint(); // 閉じたら強調表示を消す（段階は HintSession が覚えている）
 }
-$('#btn-hint').addEventListener('click', () => { sound.play('tap'); openHint(); });
 $('#btn-hint-five').addEventListener('click', () => { sound.play('tap'); openHint(); });
 $('#ctrl-five').addEventListener('click', (e) => {
   const b = e.target.closest('.five-btn');
@@ -342,12 +331,6 @@ $('#ctrl-five').addEventListener('click', (e) => {
   setMessage(tip, 'hint', tip ? 1800 : 0);
 });
 
-/** 操作ボタンの表示：'cycle'（1つのボタンで切り替え＋ヒント）／'five'（ルート・○・×・消す・💡） */
-function applyButtonLayout() {
-  const five = state.settings.get('buttons') === 'five';
-  $('#ctrl-five').hidden = !five;
-  $('#game-ctrl .ctrl-row:not(.ctrl-five)').hidden = five;
-}
 
 let msgTimer = null;
 function setMessage(text, kind = '', duration = 0) {
@@ -538,7 +521,7 @@ const CLUE_NOTE = {
   fraction: '「1/3」… 左が今までに通った数、右が通るフルーツの数',
 };
 function renderSettings() {
-  const cur = { sound: state.settings.get('sound') ? 'on' : 'off', clueStyle: state.settings.get('clueStyle'), buttons: state.settings.get('buttons') };
+  const cur = { sound: state.settings.get('sound') ? 'on' : 'off', clueStyle: state.settings.get('clueStyle') };
   document.querySelectorAll('#settings .seg').forEach((seg) => {
     seg.querySelectorAll('button').forEach((b) => {
       const on = b.dataset.value === cur[seg.dataset.setting];
@@ -594,9 +577,6 @@ $('#settings').addEventListener('click', (e) => {
   } else if (key === 'clueStyle') {
     state.settings.set('clueStyle', b.dataset.value);
     state.renderer?.setClueStyle(b.dataset.value);
-  } else if (key === 'buttons') {
-    state.settings.set('buttons', b.dataset.value);
-    applyButtonLayout();
   }
   sound.play('tap');
   renderSettings();
@@ -997,7 +977,6 @@ function initCollection() {
 
 // ---------------- 起動 ----------------
 async function boot() {
-  applyButtonLayout();
   try {
     state.library = await loadPuzzleLibrary('data/puzzles.json');
     // あそびかた専用の問題（読めなければ、従来の例題 1 問だけで説明する）
