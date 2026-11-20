@@ -139,7 +139,7 @@ test('チェックサムが合っていても、ありえない値は読みこ�
 
 // ---------------- 復元データ ----------------
 test('復元：既存の読みこみ処理で、クリア・★・フルーツ・トロフィー・称号・設定がそのとおりになる', () => {
-  const { b, ids } = playedBackend(120, { seed: 13, fruit: 'banana', ta: [10, 7, 5, 4, 3], sound: false, clueStyle: 'fraction' });
+  const { b, ids } = playedBackend(120, { seed: 13, fruit: 'banana', ta: [10, 8, 5, 4, 3], sound: false, clueStyle: 'fraction' });
   const src = readRecord(b);
   const code = encodeRecord(src);
   const target = mem({ [STORAGE_KEY]: JSON.stringify({ version: 1, cleared: { 'master-050': { firstClearedAt: '2020-01-01T00:00:00Z', clearCount: 9, hintFree: true } } }) });
@@ -159,7 +159,7 @@ test('復元：既存の読みこみ処理で、クリア・★・フルーツ�
   assert.equal(col.selectedFruit(unlockedFruitIds(stats)).id, unlockedFruitIds(stats).includes('banana') ? 'banana' : 'strawberry');
   assert.equal(pendingRewards(stats, col, () => 50).isEmpty, true, '古い演出は出ない');
   const ta = createChallengeStore(target);
-  assert.deepEqual(ta.bestByLevel(), { 1: 10, 2: 7, 3: 5, 4: 4, 5: 3 });
+  assert.deepEqual(ta.bestByLevel(), { 1: 10, 2: 8, 3: 5, 4: 4, 5: 3 });
   assert.equal(ta.isComplete(), true, '完全制覇も最高記録から復元');
   assert.equal(titleFor(1, ta.get(1).bestClears).id, 'kaiden');
   assert.equal(ta.get(1).playCount, null, '回数は不明');

@@ -22,7 +22,7 @@ function session(level, { random = Math.random } = {}) {
 
 // ---------------- 難易度・時間 ----------------
 test('難易度ごとの制限時間・ロスタイム・最高称号の条件', () => {
-  const spec = [[1, 120, 10, 10], [2, 180, 15, 7], [3, 240, 20, 5], [4, 300, 25, 4], [5, 300, 30, 3]];
+  const spec = [[1, 120, 10, 10], [2, 180, 15, 8], [3, 240, 20, 5], [4, 300, 25, 4], [5, 300, 30, 3]];
   assert.equal(TA_LEVELS.length, 5);
   for (const [level, normal, over, master] of spec) {
     const c = taConfig(level);
@@ -39,7 +39,7 @@ test('称号：正解数 0 では称号なし、各難易度の条件どおり',
   for (const c of TA_LEVELS) assert.equal(titleFor(c.level, 0), null);
   assert.deepEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((n) => ids(1, n)),
     [null, 'rookie', 'rookie', 'challenger', 'challenger', 'meijin', 'meijin', 'tatsujin', 'tatsujin', 'tatsujin', 'kaiden', 'kaiden']);
-  assert.deepEqual([1, 2, 3, 4, 5, 6, 7].map((n) => ids(2, n)), ['rookie', 'challenger', 'challenger', 'meijin', 'tatsujin', 'tatsujin', 'kaiden']);
+  assert.deepEqual([1, 2, 3, 4, 5, 6, 7, 8].map((n) => ids(2, n)), ['rookie', 'challenger', 'challenger', 'meijin', 'meijin', 'tatsujin', 'tatsujin', 'kaiden']);
   assert.deepEqual([1, 2, 3, 4, 5].map((n) => ids(3, n)), ['rookie', 'challenger', 'meijin', 'tatsujin', 'kaiden']);
   assert.deepEqual([1, 2, 3, 4].map((n) => ids(4, n)), ['challenger', 'meijin', 'tatsujin', 'kaiden']);
   assert.deepEqual([1, 2, 3].map((n) => ids(5, n)), ['challenger', 'tatsujin', 'kaiden']);
@@ -57,8 +57,9 @@ test('称号：最高称号と、次の称号までの残り', () => {
   assert.equal(nextTitleText(3, 3), '次の称号まで あと1問');
   assert.equal(nextTitleText(5, 2), 'あと1問で 👑 フルーツめいろの神！');
   assert.equal(nextTitleText(4, 4), '最高称号達成！');
-  assert.equal(allMaster({ 1: 10, 2: 7, 3: 5, 4: 4, 5: 2 }), false);
-  assert.equal(allMaster({ 1: 12, 2: 7, 3: 5, 4: 4, 5: 3 }), true);
+  assert.equal(allMaster({ 1: 10, 2: 8, 3: 5, 4: 4, 5: 2 }), false);
+  assert.equal(allMaster({ 1: 10, 2: 7, 3: 5, 4: 4, 5: 3 }), false, '★★ は 8 問で最高称号');
+  assert.equal(allMaster({ 1: 12, 2: 8, 3: 5, 4: 4, 5: 3 }), true);
 });
 
 // ---------------- 記録 ----------------
@@ -94,7 +95,7 @@ test('記録：最高称号ははじめての 1 回だけ「達成」、5 難易
   assert.equal(s.get(5).masterAchievedAt, '2026-11-19T11:00:00.000Z');
   r = s.recordResult(5, 4);
   assert.equal(r.firstMaster, false);
-  for (const [lv, n] of [[1, 10], [2, 7], [3, 5]]) assert.equal(s.recordResult(lv, n).newlyComplete, false);
+  for (const [lv, n] of [[1, 10], [2, 8], [3, 5]]) assert.equal(s.recordResult(lv, n).newlyComplete, false);
   r = s.recordResult(4, 4);
   assert.equal(r.newlyComplete, true);
   assert.equal(s.isComplete(), true);
@@ -318,7 +319,7 @@ test('全 250 問：タイムアタックのルールでも正解ルートでク
 test('称号：難易度ごとに別の名前（全 22 種類・重複なし）。絵文字は段階ごとに共通', () => {
   const expected = {
     1: [[1, '🌱', 'めいろのたまご'], [3, '🍀', 'フルーツたんけんたい'], [5, '⭐', 'めいろの道しるべ'], [7, '🔥', 'フルーツスピードスター'], [10, '👑', 'フルーツスピード王']],
-    2: [[1, '🌱', 'めいろの見習い'], [2, '🍀', 'フルーツトラベラー'], [4, '⭐', 'ひらめきナビゲーター'], [5, '🔥', 'めいろの達人'], [7, '👑', 'フルーツひらめき王']],
+    2: [[1, '🌱', 'めいろの見習い'], [2, '🍀', 'フルーツトラベラー'], [4, '⭐', 'ひらめきナビゲーター'], [6, '🔥', 'めいろの達人'], [8, '👑', 'フルーツひらめき王']],
     3: [[1, '🌱', 'すいりのチャレンジャー'], [2, '🍀', 'めいろハンター'], [3, '⭐', 'ひらめきマスター'], [4, '🔥', 'フルーツの賢者'], [5, '👑', 'フルーツ知恵の王']],
     4: [[1, '🍀', 'めいろの探究者'], [2, '⭐', 'すいりのエキスパート'], [3, '🔥', 'めいろの大賢者'], [4, '👑', 'フルーツ太陽王']],
     5: [[1, '🍀', '伝説への挑戦者'], [2, '🔥', '究極のめいろマスター'], [3, '👑', 'フルーツめいろの神']],
@@ -336,8 +337,8 @@ test('称号：難易度ごとに別の名前（全 22 種類・重複なし）�
 
 test('称号：保存済みの最高クリア数から、新しい名前の称号が計算される（記録はそのまま）', () => {
   const backend = mem();
-  backend.setItem('fruitMaze.timeAttack.v1', JSON.stringify({ version: 1, levels: { 2: { bestClears: 5, playCount: 9, lastClears: 3 } } }));
+  backend.setItem('fruitMaze.timeAttack.v1', JSON.stringify({ version: 1, levels: { 2: { bestClears: 6, playCount: 9, lastClears: 3 } } }));
   const s = createChallengeStore(backend);
-  assert.deepEqual([s.get(2).bestClears, s.get(2).playCount, s.get(2).lastClears], [5, 9, 3]);
+  assert.deepEqual([s.get(2).bestClears, s.get(2).playCount, s.get(2).lastClears], [6, 9, 3]);
   assert.equal(titleFor(2, s.get(2).bestClears).name, 'めいろの達人');
 });

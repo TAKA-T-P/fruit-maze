@@ -33,8 +33,8 @@ export const TITLE_TABLE = {
     { id: 'rookie', need: 1, name: 'めいろの見習い' },
     { id: 'challenger', need: 2, name: 'フルーツトラベラー' },
     { id: 'meijin', need: 4, name: 'ひらめきナビゲーター' },
-    { id: 'tatsujin', need: 5, name: 'めいろの達人' },
-    { id: 'kaiden', need: 7, name: 'フルーツひらめき王' },
+    { id: 'tatsujin', need: 6, name: 'めいろの達人' },
+    { id: 'kaiden', need: 8, name: 'フルーツひらめき王' },
   ],
   3: [
     { id: 'rookie', need: 1, name: 'すいりのチャレンジャー' },
