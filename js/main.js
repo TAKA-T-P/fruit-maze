@@ -218,7 +218,7 @@ function startPuzzle(puzzle) {
   state.puzzle = puzzle;
   if (!ta) state.lastPuzzleId[puzzle.difficulty] = puzzle.id; // タイムアタックの出題は通常モードの「前回」に入れない
   state.stage = stageOf(puzzle);
-  // タイムアタックでは数字をこえて進める（こえた数字は赤。GOAL で数字がぴったりのときだけクリア）
+  // タイムアタックでは数字をこえて進める（こえた数字は赤。もう一つの青マスで数字がぴったりのときだけクリア）
   state.game = new PuzzleGame(puzzle, { allowClueOverflow: ta });
   state.memo = new MemoBoard(puzzle);   // 問題が変わったらメモは新しく
   state.hint = ta ? null : new HintSession(puzzle); // タイムアタックではヒントなし
@@ -266,7 +266,7 @@ function refresh() {
   const g = state.game;
   const cleared = g.status === STATUS.CLEARED;
   state.renderer.update(g, state.memo);
-  $('#btn-reset').disabled = (g.route.length <= 1 && !state.memo.hasAny()) || cleared;
+  $('#btn-reset').disabled = (g.route.length === 0 && !state.memo.hasAny()) || cleared;
   $('#btn-hint-five').disabled = cleared;
   document.querySelectorAll('#ctrl-five .five-btn').forEach((b) => { b.disabled = cleared; });
 }
@@ -369,6 +369,10 @@ function handleResult(res) {
       if (res.reason === 'locked') {
         state.renderer.nudge(res.row, res.col);
         setMessage('数字が まだ そろっていないよ！ もどって 道を なおそう', 'warn');
+      } else if (res.reason === 'not-endpoint') {
+        // まだ道がない：青マスから始める
+        state.renderer.nudge(res.row, res.col);
+        setMessage('青マスから 道を はじめよう', 'hint', 1600);
       } else if (res.reason === 'memo-x') {
         // ×を付けたマスには進めない（×を消すと通れる）
         sound.play('error');
@@ -447,7 +451,7 @@ function undo() {
 let resetArmed = null;
 $('#btn-reset').addEventListener('click', () => {
   const btn = $('#btn-reset');
-  if (!state.game || (state.game.route.length <= 1 && !state.memo.hasAny())) return;
+  if (!state.game || (state.game.route.length === 0 && !state.memo.hasAny())) return;
   // 誤操作防止：2 回押すとやり直し（ダイアログは出さない）。ルートと推理メモの両方を初期化する
   if (!resetArmed) {
     btn.classList.add('armed');
@@ -737,7 +741,7 @@ function updateTaHud() {
 }
 
 let taFlashTimer = null;
-/** 「CLEAR! +1問」「最終問題！」「時間切れ」などを短く出す（盤面の操作はじゃましない） */
+/** 「CLEAR!」「時間切れ」などを短く出す（盤面の操作はじゃましない） */
 function taFlash(text, kind, ms) {
   const el = $('#ta-flash');
   el.textContent = text;
@@ -751,8 +755,7 @@ function taFlash(text, kind, ms) {
 
 /** 通常の制限時間が終わった：いまの問題がそのまま「最終問題」になる（ルート・メモはそのまま） */
 function onTaFinal() {
-  renderTaTimer();
-  if (!state.taBusy) taFlash('最終問題！', 'final', 1100);
+  renderTaTimer(); // 残り時間の枠が「最終問題」になる（ポップアップは出さない）
   sound.play('goalMiss');
 }
 
@@ -768,7 +771,7 @@ function onTaSolved() {
   state.renderer.celebrate();
   if (r.type === 'next') {
     updateTaHud();
-    taFlash('CLEAR! +1問', 'clear', CLEAR_FX_MS);
+    taFlash('CLEAR!', 'clear', CLEAR_FX_MS);
     state.taTimer = setTimeout(() => {
       if (state.ta !== ta || !ta.isActive) return; // 演出中に時間切れ・中断になったとき
       loadTaPuzzle(r.puzzle);
@@ -778,7 +781,7 @@ function onTaSolved() {
     // 最終問題をロスタイム内にクリア：1 問加算して結果へ（時間切れは出さない）
     stopTaClock();
     updateTaHud();
-    taFlash('CLEAR! +1問', 'clear', CLEAR_FX_MS + 300);
+    taFlash('CLEAR!', 'clear', CLEAR_FX_MS + 300);
     state.taTimer = setTimeout(showTaResults, CLEAR_FX_MS + 300);
   } else {
     onTaTimeUp(); // ロスタイムを過ぎてからの正解は数えない

@@ -34,7 +34,7 @@ test('メモ：空白・START・GOAL・盤面の外には付けられない', ()
 });
 
 test('メモ：ルートが通っているマスは編集できない', () => {
-  const g = new PuzzleGame(P);
+  const g = new PuzzleGame(P, { startFrom: 'start' });
   const m = new MemoBoard(P);
   g.moveTo(0, 1);
   assert.equal(m.canEdit(0, 1, g), false);
@@ -65,7 +65,7 @@ test('メモ：なぞると最初のマスで決まった値を連続で付け�
 });
 
 test('メモ：なぞり始めが編集できないマスなら、最初に編集できたマスで値が決まる', () => {
-  const g = new PuzzleGame(P);
+  const g = new PuzzleGame(P, { startFrom: 'start' });
   const m = new MemoBoard(P);
   m.set(0, 2, MEMO.ON);
   m.beginStroke();
@@ -76,7 +76,7 @@ test('メモ：なぞり始めが編集できないマスなら、最初に編�
 });
 
 test('メモを消してもルートは変わらない', () => {
-  const g = new PuzzleGame(P);
+  const g = new PuzzleGame(P, { startFrom: 'start' });
   const m = new MemoBoard(P);
   g.moveTo(0, 1); g.moveTo(0, 2);
   m.set(2, 3, MEMO.ON); m.set(3, 3, MEMO.OFF);
@@ -88,7 +88,7 @@ test('メモを消してもルートは変わらない', () => {
 });
 
 test('「はじめから」（ルートのリセット＋メモの消去）で両方とも初期状態に戻る', () => {
-  const g = new PuzzleGame(P);
+  const g = new PuzzleGame(P, { startFrom: 'start' });
   const m = new MemoBoard(P);
   g.moveTo(0, 1); m.set(3, 3, MEMO.OFF);
   g.reset(); m.clear();
@@ -107,7 +107,7 @@ test('問題が変わると新しいメモになる（前の問題のメモは�
 
 test('メモはゲームのルール・クリア判定を変えない（エンジンはメモを見ない）', () => {
   for (const p of [P, ...DATA.puzzles.filter((_, i) => i % 25 === 0)]) {
-    const g = new PuzzleGame(p);
+    const g = new PuzzleGame(p, { startFrom: 'start' });
     const m = new MemoBoard(p);
     // 正解ルートのマスに全部 × を付け、ほかのマスに ○ を付ける（全部まちがったメモ）
     const onSol = new Set(p.solution.map(([r, c]) => `${r},${c}`));
@@ -120,7 +120,7 @@ test('メモはゲームのルール・クリア判定を変えない（エン�
 });
 
 test('× を付けたマスには、ルートで進めない（操作の側で止める）。× を消せば進める', () => {
-  const g = new PuzzleGame(P);
+  const g = new PuzzleGame(P, { startFrom: 'start' });
   const m = new MemoBoard(P);
   m.set(0, 1, MEMO.OFF);
   assert.equal(isBlockedByMemo(m, 0, 1), true, '×');

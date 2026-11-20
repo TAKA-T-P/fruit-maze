@@ -31,7 +31,7 @@ export const PAGE_RULES = {
   // 1〜3ページ：数字の意味・ルートをつなぐ・通れない道。START のとなりに「数字をこえるので進めない」マスと、空白マスがある
   route: (p, r) => {
     if (r.trialWaves > 0 || r.waves > 5) return false;
-    const g = new PuzzleGame(p);
+    const g = new PuzzleGame(p, { startFrom: 'start' });
     const blocked = [[-1, 0], [1, 0], [0, -1], [0, 1]].some(([dr, dc]) => g.check(p.start.row + dr, p.start.col + dc).type === MOVE.BLOCKED);
     return blocked && p.grid.flat().includes(0) && p.rowClues.some((x) => x >= 3);
   },

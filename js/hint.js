@@ -18,6 +18,7 @@
 // まちがったメモを前提にして推理することはない（正しいと確認できたメモだけを前提にする）。
 
 import { deduce } from './deduce.js';
+import { swapEnds } from './game.js';
 
 export const CATEGORY = {
   'route-wrong': 1, 'memo-wrong': 2,
@@ -28,7 +29,7 @@ export const CATEGORY = {
 };
 
 export const NO_NEW_HINT = '今のところ、新しく教えられるヒントはないよ。道を少し進めてみよう！';
-export const ALL_KNOWN = '通るマスは、もうぜんぶ分かっているよ。GOALまで道をつなげてみよう！';
+export const ALL_KNOWN = '通るマスは、もうぜんぶ分かっているよ。もう一つの青マスまで道をつなげてみよう！';
 
 // ---------- ことば ----------
 export const lineName = ({ kind, index }) => (kind === 'row' ? `上から${index + 1}番目の行` : `左から${index + 1}番目の列`);
@@ -61,8 +62,8 @@ export function explainContradiction(puzzle, code) {
       highlight: hl({ lines: [line], clues: [line] }),
     };
   }
-  if (code === 'goal-unreachable') return { phrase: 'GOALまで道がつながらなくなる', highlight: hl({ cells: [{ row: puzzle.goal.row, col: puzzle.goal.col }] }) };
-  if (code === 'closed-early') return { phrase: '数字がそろう前にGOALに着いてしまう', highlight: hl({ cells: [{ row: puzzle.goal.row, col: puzzle.goal.col }] }) };
+  if (code === 'goal-unreachable') return { phrase: 'もう一つの青マスまで道がつながらなくなる', highlight: hl({ cells: [{ row: puzzle.goal.row, col: puzzle.goal.col }] }) };
+  if (code === 'closed-early') return { phrase: '数字がそろう前に、もう一つの青マスに着いてしまう', highlight: hl({ cells: [{ row: puzzle.goal.row, col: puzzle.goal.col }] }) };
   if (code === 'cycle') return { phrase: '道が輪っかになってしまう', highlight: hl() };
   if (code && (m = /^degree-short@(\d+)$/.exec(code))) return { phrase: '道がとちゅうで行き止まりになってしまう', highlight: hl({ cells: [cell(m[1])] }) };
   if (code && (m = /^degree-over@(\d+)$/.exec(code))) return { phrase: '道が枝分かれしてしまう', highlight: hl({ cells: [cell(m[1])] }) };
@@ -108,7 +109,7 @@ function memoWrongHint({ row, col, value }) {
       { text: '○や×のメモの中に、見直したほうがいいものがあるみたい。', highlight: hl() },
       {
         text: value === 'off'
-          ? `${lineName(line)}の×を見直してみよう。通らないとゴールできないマスに×が付いているよ。`
+          ? `${lineName(line)}の×を見直してみよう。通らないと青マスどうしをつなげないマスに×が付いているよ。`
           : `${lineName(line)}の○を見直してみよう。通らないマスに○が付いているよ。`,
         highlight: hl({ lines: [line] }),
       },
@@ -128,8 +129,8 @@ function cellsOfLine(puzzle, line) {
 }
 
 function describeCell(puzzle, [r, c], head) {
-  if (r === puzzle.start.row && c === puzzle.start.col) return 'START';
-  if (r === puzzle.goal.row && c === puzzle.goal.col) return 'GOAL';
+  if (r === puzzle.start.row && c === puzzle.start.col) return '青マス';
+  if (r === puzzle.goal.row && c === puzzle.goal.col) return '青マス';
   if (head && head[0] === r && head[1] === c) return '道の先';
   return null;
 }
@@ -146,10 +147,10 @@ function deductionHint(puzzle, g, head) {
     const name = lineName(L);
     const lineHL = hl({ lines: [L] });
     const fruitsInLine = cellsOfLine(puzzle, L);
-    // この推理の時点で「通る」と分かっているマス（START・GOAL・ルート・○のメモ・それまでのヒントで分かったマス）
+    // この推理の時点で「通る」と分かっているマス（青マス・ルート・○のメモ・それまでのヒントで分かったマス）
     const knownOn = fruitsInLine.filter(({ row, col }) => g.knownOn.has(`${row},${col}`));
-    const ends = knownOn.map(({ row, col }) => describeCell(puzzle, [row, col], null)).filter((d) => d === 'START' || d === 'GOAL');
-    const endNote = ends.length ? `（${ends.join('と')}も1個に数えるよ）` : '';
+    const ends = knownOn.map(({ row, col }) => describeCell(puzzle, [row, col], null)).filter((d) => d === '青マス');
+    const endNote = ends.length ? '（青マスも1個に数えるよ）' : '';
     const l2 = {
       'line-zero': `${name}の数字は0だね。ということは……？`,
       'line-all': R.unknown === fruitsInLine.length
@@ -214,9 +215,9 @@ function deductionHint(puzzle, g, head) {
     return {
       ...base,
       levels: [
-        { text: 'STARTからの道のつながりを考えてみよう！', highlight: hl({ lines: rows }) },
-        { text: '光っているマスまで、STARTから道をつなげられるかな？', highlight: hl({ lines: rows, cells: [...focus, start] }) },
-        { text: 'ここにはスタートから道がつながらないよ。だから、光っているマスは通らないよ！', highlight: hl({ lines: rows, cells: [start], marks }) },
+        { text: '青マスからの道のつながりを考えてみよう！', highlight: hl({ lines: rows }) },
+        { text: '光っているマスまで、青マスから道をつなげられるかな？', highlight: hl({ lines: rows, cells: [...focus, start] }) },
+        { text: 'ここには青マスから道がつながらないよ。だから、光っているマスは通らないよ！', highlight: hl({ lines: rows, cells: [start], marks }) },
       ],
     };
   }
@@ -240,7 +241,7 @@ function deductionHint(puzzle, g, head) {
   const lines = hl({ lines: [rowLine(t.row)] });
   const say = {
     loop: 'この道をつなぐと輪っかになってしまうよ。',
-    'early-goal': '今ここをつなぐと、数字がそろう前にゴールしてしまうよ。',
+    'early-goal': '今ここをつなぐと、数字がそろう前に、もう一つの青マスに着いてしまうよ。',
   }[g.rule] || '道のつながりから考えてみよう。';
   return {
     ...base,
@@ -278,7 +279,10 @@ function groupSteps(steps) {
  * @param {{route: number[][], memo?: Array<{row:number, col:number, value:'on'|'off'}>, cleared?: boolean}} board
  * @returns {{ status: 'cleared'|'route-wrong'|'memo-wrong'|'ok', candidates: object[], allKnown: boolean }}
  */
-export function analyzeBoard(puzzle, { route, memo = [], cleared = false }) {
+export function analyzeBoard(puzzle, board) {
+  // どちらの青マスから始めてもよいので、道を始めた青マスを start とした向きで考える（まだ道がなければ start から）
+  const { route, memo = [], cleared = false } = orient(puzzle, board);
+  if (route.fromGoal) puzzle = swapEnds(puzzle);
   if (cleared) return { status: 'cleared', candidates: [], allKnown: true };
   const sol = puzzle.solution;
   const k = prefixLength(route, sol);
@@ -318,6 +322,15 @@ export function analyzeBoard(puzzle, { route, memo = [], cleared = false }) {
     return deductionHint(puzzle, g, head);
   });
   return { status: 'ok', candidates, allKnown: res.status === 'solved' && res.steps.length === 0 };
+}
+
+/** ヒント用に道の向きをそろえる。道がまだなければ、start 側の青マスだけを通った状態として考える */
+function orient(puzzle, board) {
+  const route = [...(board.route || [])];
+  const { start, goal } = puzzle;
+  if (!route.length) route.push([start.row, start.col]);
+  route.fromGoal = route[0][0] === goal.row && route[0][1] === goal.col;
+  return { ...board, route };
 }
 
 function noneHint(text) {

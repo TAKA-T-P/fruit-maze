@@ -55,8 +55,8 @@ test('称号：最高称号と、次の称号までの残り', () => {
   assert.deepEqual(((n) => [n.title.id, n.remaining])(nextTitle(5, 1)), ['tatsujin', 1]);
   assert.equal(nextTitle(3, 5), null);
   assert.equal(nextTitleText(3, 3), '次の称号まで あと1問');
-  assert.equal(nextTitleText(5, 2), 'あと1問で 👑 フルーツめいろの神様！');
-  assert.equal(nextTitleText(4, 4), '👑 フルーツ太陽王！');
+  assert.equal(nextTitleText(5, 2), 'あと1問で 👑 フルーツめいろの神！');
+  assert.equal(nextTitleText(4, 4), '最高称号達成！');
   assert.equal(allMaster({ 1: 10, 2: 7, 3: 5, 4: 4, 5: 2 }), false);
   assert.equal(allMaster({ 1: 12, 2: 7, 3: 5, 4: 4, 5: 3 }), true);
 });
@@ -267,14 +267,14 @@ const P = {
 };
 
 test('通常モード（既定）では数字をこえる移動はできない', () => {
-  const g = new PuzzleGame(P);
+  const g = new PuzzleGame(P, { startFrom: 'start' });
   assert.equal(g.allowClueOverflow, false);
   g.moveTo(0, 1); g.moveTo(0, 2);
   assert.equal(g.moveTo(0, 3).type, MOVE.BLOCKED, '列の数字 0');
 });
 
 test('タイムアタックでは数字をこえて道をのばせる。ほかの制限はそのまま', () => {
-  const g = new PuzzleGame(P, { allowClueOverflow: true });
+  const g = new PuzzleGame(P, { allowClueOverflow: true, startFrom: 'start' });
   g.moveTo(0, 1); g.moveTo(0, 2);
   assert.equal(g.moveTo(0, 3).type, MOVE.MOVED, '列の数字 0 をこえて進める');
   assert.equal(g.colState(3).over, true);
@@ -288,7 +288,7 @@ test('タイムアタックでは数字をこえて道をのばせる。ほか�
 });
 
 test('数字をこえたまま GOAL に着いてもクリアにならない。もどって直せばクリア', () => {
-  const g = new PuzzleGame(P, { allowClueOverflow: true });
+  const g = new PuzzleGame(P, { allowClueOverflow: true, startFrom: 'start' });
   for (const [r, c] of [[1, 0], [2, 0], [3, 0]]) g.moveTo(r, c);  // 列 0 が 4 / 3 で GOAL
   assert.equal(g.colState(0).over, true);
   assert.equal(g.status, STATUS.AT_GOAL, 'クリアではない');
@@ -299,8 +299,8 @@ test('数字をこえたまま GOAL に着いてもクリアにならない。�
 });
 
 test('数字こえの許可は、そのゲームだけ（通常モードのゲームには残らない）', () => {
-  const ta = new PuzzleGame(P, { allowClueOverflow: true });
-  const normal = new PuzzleGame(P);
+  const ta = new PuzzleGame(P, { allowClueOverflow: true, startFrom: 'start' });
+  const normal = new PuzzleGame(P, { startFrom: 'start' });
   ta.moveTo(0, 1); ta.moveTo(0, 2);
   normal.moveTo(0, 1); normal.moveTo(0, 2);
   assert.equal(ta.moveTo(0, 3).type, MOVE.MOVED);
@@ -309,7 +309,7 @@ test('数字こえの許可は、そのゲームだけ（通常モードのゲ�
 
 test('全 250 問：タイムアタックのルールでも正解ルートでクリアでき、クリア判定は同じ', () => {
   for (const p of DATA.puzzles) {
-    const g = new PuzzleGame(p, { allowClueOverflow: true });
+    const g = new PuzzleGame(p, { allowClueOverflow: true, startFrom: 'start' });
     for (const [r, c] of p.solution.slice(1)) assert.equal(g.moveTo(r, c).type, MOVE.MOVED, p.id);
     assert.equal(g.status, STATUS.CLEARED, p.id);
   }
@@ -321,7 +321,7 @@ test('称号：難易度ごとに別の名前（全 22 種類・重複なし）�
     2: [[1, '🌱', 'めいろの見習い'], [2, '🍀', 'フルーツトラベラー'], [4, '⭐', 'ひらめきナビゲーター'], [5, '🔥', 'めいろの達人'], [7, '👑', 'フルーツひらめき王']],
     3: [[1, '🌱', 'すいりのチャレンジャー'], [2, '🍀', 'めいろハンター'], [3, '⭐', 'ひらめきマスター'], [4, '🔥', 'フルーツの賢者'], [5, '👑', 'フルーツ知恵の王']],
     4: [[1, '🍀', 'めいろの探究者'], [2, '⭐', 'すいりのエキスパート'], [3, '🔥', 'めいろの大賢者'], [4, '👑', 'フルーツ太陽王']],
-    5: [[1, '🍀', '伝説への挑戦者'], [2, '🔥', '究極のめいろマスター'], [3, '👑', 'フルーツめいろの神様']],
+    5: [[1, '🍀', '伝説への挑戦者'], [2, '🔥', '究極のめいろマスター'], [3, '👑', 'フルーツめいろの神']],
   };
   for (const level of [1, 2, 3, 4, 5]) {
     assert.deepEqual(titlesOf(level).map((t) => [t.need, t.icon, t.name]), expected[level], `★${level}`);

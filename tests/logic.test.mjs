@@ -39,14 +39,14 @@ test('fixture は正しい問題データ', () => {
 
 // ---------- 基本操作 ----------
 test('スタートマスは最初から 1 個として数える', () => {
-  const g = new PuzzleGame(FIXTURE);
+  const g = new PuzzleGame(FIXTURE, { startFrom: 'start' });
   assert.deepEqual(g.route, [[0, 0]]);
   assert.equal(g.rowCounts[0], 1);
   assert.equal(g.colCounts[0], 1);
 });
 
 test('隣接するフルーツへ進める', () => {
-  const g = new PuzzleGame(FIXTURE);
+  const g = new PuzzleGame(FIXTURE, { startFrom: 'start' });
   assert.equal(g.moveTo(0, 1).type, MOVE.MOVED);
   assert.deepEqual(g.head, [0, 1]);
   assert.equal(g.rowCounts[0], 2);
@@ -54,7 +54,7 @@ test('隣接するフルーツへ進める', () => {
 });
 
 test('斜め・離れたマスには進めない', () => {
-  const g = new PuzzleGame(FIXTURE);
+  const g = new PuzzleGame(FIXTURE, { startFrom: 'start' });
   g.moveTo(0, 1);
   const r1 = g.moveTo(1, 2);
   assert.equal(r1.type, MOVE.IGNORED);
@@ -64,7 +64,7 @@ test('斜め・離れたマスには進めない', () => {
 });
 
 test('空白マスへは進めない', () => {
-  const g = new PuzzleGame(FIXTURE);
+  const g = new PuzzleGame(FIXTURE, { startFrom: 'start' });
   g.moveTo(0, 1);
   const r = g.moveTo(1, 1);
   assert.equal(r.type, MOVE.IGNORED);
@@ -72,7 +72,7 @@ test('空白マスへは進めない', () => {
 });
 
 test('通過済みのマスへは進めない（直前のマスは「もどる」になる）', () => {
-  const g = new PuzzleGame(OPEN);
+  const g = new PuzzleGame(OPEN, { startFrom: 'start' });
   play(g, [[0, 1], [1, 1], [1, 0]]);
   // (1,0) から (0,0)=スタート は通過済み、直前ではない
   const r = g.moveTo(0, 0);
@@ -86,7 +86,7 @@ test('通過済みのマスへは進めない（直前のマスは「もどる�
 });
 
 test('1 手もどると数字が正しく減算される', () => {
-  const g = new PuzzleGame(FIXTURE);
+  const g = new PuzzleGame(FIXTURE, { startFrom: 'start' });
   play(g, [[0, 1], [0, 2]]);
   assert.equal(g.rowCounts[0], 3);
   assert.equal(g.colCounts[2], 1);
@@ -97,13 +97,13 @@ test('1 手もどると数字が正しく減算される', () => {
 });
 
 test('スタートだけの状態では もどれない', () => {
-  const g = new PuzzleGame(FIXTURE);
+  const g = new PuzzleGame(FIXTURE, { startFrom: 'start' });
   assert.equal(g.undo(), false);
   assert.deepEqual(g.route, [[0, 0]]);
 });
 
 test('やり直しで初期状態に戻る（問題は変わらない）', () => {
-  const g = new PuzzleGame(FIXTURE);
+  const g = new PuzzleGame(FIXTURE, { startFrom: 'start' });
   play(g, [[0, 1], [0, 2], [1, 2]]);
   g.reset();
   assert.deepEqual(g.route, [[0, 0]]);
@@ -115,7 +115,7 @@ test('やり直しで初期状態に戻る（問題は変わらない）', () =>
 
 // ---------- 数字判定 ----------
 test('行の指定数を超える移動はできない（ルートは維持）', () => {
-  const g = new PuzzleGame(FIXTURE);
+  const g = new PuzzleGame(FIXTURE, { startFrom: 'start' });
   play(g, [[1, 0], [2, 0], [2, 1], [3, 1]]); // 行3 = 1/1
   const before = g.route.map((x) => [...x]);
   const r = g.moveTo(3, 2);
@@ -127,7 +127,7 @@ test('行の指定数を超える移動はできない（ルートは維持）',
 });
 
 test('列の指定数を超える移動はできない', () => {
-  const g = new PuzzleGame(FIXTURE);
+  const g = new PuzzleGame(FIXTURE, { startFrom: 'start' });
   play(g, [[0, 1], [0, 2], [1, 2], [2, 2]]); // 列2 = 3/3
   const r = g.moveTo(3, 2);
   assert.equal(r.type, MOVE.BLOCKED);
@@ -137,7 +137,7 @@ test('列の指定数を超える移動はできない', () => {
 });
 
 test('数字 0 の列には入れない', () => {
-  const g = new PuzzleGame(FIXTURE);
+  const g = new PuzzleGame(FIXTURE, { startFrom: 'start' });
   play(g, [[0, 1], [0, 2]]);
   const r = g.moveTo(0, 3);
   assert.equal(r.type, MOVE.BLOCKED);
@@ -145,7 +145,7 @@ test('数字 0 の列には入れない', () => {
 });
 
 test('行・列が指定数に達すると done になる', () => {
-  const g = new PuzzleGame(FIXTURE);
+  const g = new PuzzleGame(FIXTURE, { startFrom: 'start' });
   play(g, [[0, 1], [0, 2]]);
   assert.equal(g.rowState(0).done, true);
   assert.equal(g.rowState(1).done, false);
@@ -153,7 +153,7 @@ test('行・列が指定数に達すると done になる', () => {
 });
 
 test('条件を満たさずにゴールしてもクリアにならない／新しい移動は受け付けない', () => {
-  const g = new PuzzleGame(OPEN);
+  const g = new PuzzleGame(OPEN, { startFrom: 'start' });
   const res = play(g, [[1, 0], [2, 0]]);
   assert.equal(res.at(-1).status, STATUS.AT_GOAL);
   assert.equal(g.status, STATUS.AT_GOAL);
@@ -169,7 +169,7 @@ test('条件を満たさずにゴールしてもクリアにならない／新�
 });
 
 test('正解ルートでゴールするとクリア。クリア後は操作できない', () => {
-  const g = new PuzzleGame(FIXTURE);
+  const g = new PuzzleGame(FIXTURE, { startFrom: 'start' });
   const res = play(g, FIXTURE.solution.slice(1));
   assert.ok(res.slice(0, -1).every((r) => r.type === MOVE.MOVED && r.status === STATUS.PLAYING));
   assert.equal(g.status, STATUS.CLEARED);
@@ -186,7 +186,7 @@ test('収録問題：すべて正しい形式で、正解ルートと数字が�
 
 test('収録問題：エンジンで正解ルートを再生するとクリアになる', () => {
   for (const p of [...DATA.puzzles, DATA.tutorial]) {
-    const g = new PuzzleGame(p);
+    const g = new PuzzleGame(p, { startFrom: 'start' });
     for (const [r, c] of p.solution.slice(1)) assert.equal(g.moveTo(r, c).type, MOVE.MOVED, `${p.id} (${r},${c})`);
     assert.equal(g.status, STATUS.CLEARED, p.id);
   }
@@ -384,4 +384,54 @@ test('ステージの並び：並びにない問題はうしろに ID 順で付�
   assert.deepEqual(easy.slice(0, 3), ['easy-030', 'easy-002', 'easy-001']);
   assert.equal(easy.length, 50);
   assert.equal(lib.list(2)[0].id, 'normal-001');
+});
+
+// ---- どちらの青マスから始めてもよい ----
+import { analyzeBoard } from '../js/hint.js';
+
+test('青マス：はじめは道がなく、青マス以外からは始められない', () => {
+  const p = DATA.puzzles[0];
+  const g = new PuzzleGame(p);
+  assert.equal(g.route.length, 0);
+  assert.equal(g.head, null);
+  const [r, c] = p.solution[1];
+  assert.equal(g.moveTo(r, c).reason, 'not-endpoint');
+  assert.equal(g.route.length, 0);
+  assert.ok(g.isEndpoint(p.start.row, p.start.col) && g.isEndpoint(p.goal.row, p.goal.col));
+});
+
+test('青マス：start からでも goal からでも、正解の道でクリアできる（全 250 問）', () => {
+  for (const p of DATA.puzzles) {
+    for (const path of [p.solution, [...p.solution].reverse()]) {
+      const g = new PuzzleGame(p);
+      for (const [r, c] of path) assert.equal(g.moveTo(r, c).type, MOVE.MOVED, p.id);
+      assert.equal(g.status, STATUS.CLEARED, p.id);
+    }
+  }
+});
+
+test('青マス：出発点だけのときにもう一方の青マスに触れると、そちらから始め直す。1手もどると道がなくなる', () => {
+  const p = DATA.puzzles.find((x) => Math.abs(x.start.row - x.goal.row) + Math.abs(x.start.col - x.goal.col) > 1);
+  const g = new PuzzleGame(p);
+  g.moveTo(p.start.row, p.start.col);
+  assert.ok(g.isStart(p.start.row, p.start.col) && g.isGoal(p.goal.row, p.goal.col));
+  const res = g.moveTo(p.goal.row, p.goal.col);
+  assert.equal(res.type, MOVE.MOVED);
+  assert.deepEqual(g.route, [[p.goal.row, p.goal.col]]);
+  assert.ok(g.isStart(p.goal.row, p.goal.col) && g.isGoal(p.start.row, p.start.col));
+  assert.equal(g.rowCounts.reduce((a, b) => a + b, 0), 1, '数え直している');
+  assert.equal(g.undo(), true);
+  assert.equal(g.route.length, 0);
+  assert.equal(g.origin, null);
+  assert.equal(g.rowCounts.reduce((a, b) => a + b, 0), 0);
+});
+
+test('青マス：goal 側から始めても、ヒントは正しい道として扱う（まちがい扱いしない）', () => {
+  for (const p of DATA.puzzles.filter((x) => x.difficulty <= 2).slice(0, 30)) {
+    const rev = [...p.solution].reverse();
+    const a = analyzeBoard(p, { route: rev.slice(0, 3), memo: [] });
+    assert.notEqual(a.status, 'route-wrong', p.id);
+    const empty = analyzeBoard(p, { route: [], memo: [] });
+    assert.equal(empty.status, 'ok', p.id);
+  }
 });

@@ -40,7 +40,7 @@ export function countTurns(path) {
  * ゲームエンジンの判定（check）をそのまま使うので、数字で禁止される方向は自動的に除外される。
  */
 export function countBranches(puzzle) {
-  const g = new PuzzleGame(puzzle);
+  const g = new PuzzleGame(puzzle, { startFrom: 'start' });
   let branchPoints = 0, options = 0;
   for (let i = 1; i < puzzle.solution.length; i++) {
     const [hr, hc] = g.head;

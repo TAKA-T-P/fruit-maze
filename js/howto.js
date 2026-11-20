@@ -143,18 +143,19 @@ export class HowTo {
       {
         title: '① 数字の意味',
         puzzle: R, interactive: false, tools: [], showSolution: true,
-        text: `右の数字は、その<b>行（よこ）</b>で通るフルーツの数。上の数字は、その<b>列（たて）</b>で通る数だよ。下は START から GOAL までの正解の道。どの行・列も、通ったフルーツの数が数字と同じになっているね！`,
+        text: `右の数字は、その<b>行（よこ）</b>で通るフルーツの数。上の数字は、その<b>列（たて）</b>で通る数だよ。下は 2つの<b>青マス</b>をつなぐ正解の道。どの行・列も、通ったフルーツの数が数字と同じになっているね！`,
         setup: () => this.renderer.showHint({ lines: [{ kind: 'row', index: bigRow }], clues: [{ kind: 'row', index: bigRow }] }),
-        task: () => `黄色の行の数字は「${R.rowClues[bigRow]}」。この行では <b>${R.rowClues[bigRow]}つ</b> のフルーツを通っているよ！<br><small>START と GOAL の ○ は「かならず通る」印だよ。</small>`,
+        task: () => `黄色の行の数字は「${R.rowClues[bigRow]}」。この行では <b>${R.rowClues[bigRow]}つ</b> のフルーツを通っているよ！<br><small>青マスは かならず通るよ。どちらの青マスから はじめてもいいよ。</small>`,
       },
       {
         title: '② ルートをつなごう',
         puzzle: R, tools: ['reset'],
-        text: '<b>START</b> から、うすい点線の上を指でなぞって <b>GOAL</b> までつないでみよう！ となりのフルーツをタップしても進めるよ。',
+        text: '<b>青マス</b>から、うすい点線の上を指でなぞって、もう一つの<b>青マス</b>までつないでみよう！ となりのフルーツをタップしても進めるよ。',
         setup: () => this.renderer.setGuide(R.solution),
         task: () => {
           if (this.game.status === STATUS.CLEARED) return '<span class="ok">✓ できた！ すべての数字がそろったね</span>';
           if (this.game.status === STATUS.AT_GOAL) return '数字がそろっていないよ。ひとつ前のフルーツをタップして、道をなおそう';
+          if (!this.game.route.length) return 'どちらの青マスから はじめても いいよ';
           return 'まちがえたら、ひとつ前のフルーツをタップするともどれるよ';
         },
       },
@@ -207,7 +208,7 @@ export class HowTo {
         task: () => {
           if (this.game.status === STATUS.CLEARED) return '<span class="ok big">🎉 じゅんびOK！ フルーツめいろに挑戦しよう！</span>';
           if (this.game.status === STATUS.AT_GOAL) return '数字がそろっていないよ。ひとつ前のフルーツをタップして、道をなおそう';
-          return '<span class="one-line">STARTからGOALまで、数字をそろえてつなごう</span>';
+          return '<span class="one-line">青マスどうしを、数字をそろえてつなごう</span>';
         },
       },
     ];
@@ -247,7 +248,7 @@ export class HowTo {
       this.renderer.board.classList.toggle('static', page.interactive === false);
       this.controls.setEnabled(page.interactive !== false);
       // 正解ルートを見せるページ：正解の道をたどった状態にする
-      if (page.showSolution) for (const [r, c] of puzzle.solution.slice(1)) this.game.moveTo(r, c);
+      if (page.showSolution) for (const [r, c] of puzzle.solution) this.game.moveTo(r, c);
     }
     for (const el of this.toolsEl.querySelectorAll('[data-tool]')) el.hidden = !(page.tools || []).includes(el.dataset.tool);
     this.toolsEl.hidden = !(page.tools || []).length;
@@ -266,7 +267,7 @@ export class HowTo {
       if (this.page.showSolution) this.renderer.board.classList.remove('cleared');
     }
     const tool = (name) => this.toolsEl.querySelector(`[data-tool="${name}"]`);
-    tool('reset').disabled = this.game.route.length <= 1 && !this.memo.hasAny();
+    tool('reset').disabled = this.game.route.length === 0 && !this.memo.hasAny();
     tool('hint').disabled = cleared;
     this.toolsEl.querySelectorAll('.five-btn').forEach((b) => { b.disabled = cleared; });
     this.taskEl.innerHTML = this.page.task ? this.page.task() : '';

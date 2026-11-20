@@ -52,7 +52,7 @@ export const TITLE_TABLE = {
   5: [
     { id: 'challenger', need: 1, name: '伝説への挑戦者' },
     { id: 'tatsujin', need: 2, name: '究極のめいろマスター' },
-    { id: 'kaiden', need: 3, name: 'フルーツめいろの神様' },
+    { id: 'kaiden', need: 3, name: 'フルーツめいろの神' },
   ],
 };
 
@@ -89,7 +89,7 @@ export const isMaster = (level, clears) => clears >= masterClearsOf(level);
 export function nextTitleText(level, clears) {
   const n = nextTitle(level, clears);
   const m = masterTitleOf(level);
-  if (!n) return `${m.icon} ${m.name}！`;
+  if (!n) return '最高称号達成！'; // 最高称号は上の行に表示しているので、ここでは名前をくり返さない
   if (n.title.id === MASTER_TITLE_ID) return `あと${n.remaining}問で ${m.icon} ${m.name}！`;
   return `次の称号まで あと${n.remaining}問`;
 }

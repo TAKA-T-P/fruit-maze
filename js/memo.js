@@ -57,7 +57,7 @@ export class MemoBoard {
   get(r, c) { return this.inBoard(r, c) ? this.cells[r * this.cols + c] : MEMO.NONE; }
 
   /**
-   * メモを付けられるマスか。空白・START・GOAL・ルートが通っているマスは不可。
+   * メモを付けられるマスか。空白・青マス（2 つの端）・ルートが通っているマスは不可。
    * @param {import('./game.js').PuzzleGame} [game]
    */
   canEdit(r, c, game = null) {

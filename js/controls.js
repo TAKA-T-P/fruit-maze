@@ -82,9 +82,9 @@ export class BoardControls {
     }
     if (!cell) return;
     const game = this.getGame();
-    const [hr, hc] = game.head;
-    if (cell.row === hr && cell.col === hc) return; // 先頭マスから なぞり始める
-    // タップ：隣のマスへ進む／直前のマスなら 1 手もどる
+    const head = game.head;
+    if (head && cell.row === head[0] && cell.col === head[1]) return; // 先頭マスから なぞり始める
+    // タップ：青マスから道を始める／隣のマスへ進む／直前のマスなら 1 手もどる
     this.onResult(this._tryMove(cell.row, cell.col), 'tap');
   }
 
@@ -134,6 +134,11 @@ export class BoardControls {
   /** ドラッグで指が入ったマスに向かってルートを伸ばす（または戻す） */
   _dragTo(r, c) {
     const game = this.getGame();
+    if (!game.head) {
+      // まだ道がない：青マスまで指を動かしたら、そこから始める
+      if (game.isEndpoint(r, c)) this.onResult(this._tryMove(r, c), 'drag');
+      return;
+    }
     const [hr, hc] = game.head;
     if (r === hr && c === hc) return;
 
@@ -189,6 +194,7 @@ export class BoardControls {
     if (dirs[e.key]) {
       e.preventDefault();
       const game = this.getGame();
+      if (!game.head) { const { start } = game.puzzle; this.onResult(this._tryMove(start.row, start.col), 'key'); return; } // 矢印キー：まだ道がなければ青マスの一方から始める
       const [hr, hc] = game.head;
       this.onResult(this._tryMove(hr + dirs[e.key][0], hc + dirs[e.key][1]), 'key');
     } else if ((e.key === 'Backspace' || e.key === 'z' || e.key === 'Z') && this.onUndoKey) {

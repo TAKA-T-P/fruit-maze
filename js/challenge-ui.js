@@ -40,7 +40,7 @@ export function renderTaIntro(el, level, store) {
       <li>⏱️ 制限時間は <b>${timeText(c.normalSeconds)}</b>。何問クリアできるかな？</li>
       <li>${m.icon} <b>${m.need}問</b>クリアで 最高の称号「${m.name}」！</li>
       <li>💡 ヒントは つかえないよ（○・× のメモは つかえる）</li>
-      <li>🔢 数字を こえても 道を のばせるよ。GOAL で 数字が ぴったりなら クリア！</li>
+      <li>🔢 数字を こえても 道を のばせるよ。青マスどうしが つながって、数字が ぴったりなら クリア！</li>
       <li>🔁 まちがえても 何度でも やり直せるよ</li>
       <li>🏁 時間が 0 になっても、いまの問題は「<b>最終問題</b>」として 少しだけ つづけられるよ</li>
     </ul>`;
@@ -53,7 +53,7 @@ export function renderTaResult(el, { level, clears, result, reason }) {
   const next = nextTitle(level, result.best);
   el.innerHTML = `
     <p class="ta-res-label">⏱️ タイムアタック終了！</p>
-    <p class="ta-res-level">むずかしさ：<span class="stars">${c.stars}</span>${reason === 'final-cleared' ? '　<span class="ta-res-final">最終問題もクリア！</span>' : ''}</p>
+    <p class="ta-res-level">むずかしさ：<span class="stars">${c.stars}</span></p>
     ${result.newRecord ? '<p class="ta-res-new">NEW RECORD!</p>' : ''}
     <div class="ta-res-stats">
       <div><span class="ta-res-k">今回の記録</span><span class="ta-res-v"><b>${clears}</b>問クリア</span></div>

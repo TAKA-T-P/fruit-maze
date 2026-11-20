@@ -1,17 +1,8 @@
 // 盤面の描画（ゲームの状態を読み取って DOM に反映するだけ。判定は行わない）
 
 const LINK_DIR = { '-1,0': 'up', '1,0': 'down', '0,-1': 'left', '0,1': 'right' };
-const SIDE_TO_DIR = { top: 'up', bottom: 'down', left: 'left', right: 'right' };
-const LABEL_SIZE = 1.0;   // スタート/ゴールの列・行の幅（マス何個分）
-const NO_LABEL_SIZE = 0.15;
+const EDGE_SIZE = 0.15;   // 盤面のまわりの余白（マス何個分）。START / GOAL のラベルはないので、四辺とも同じ
 const CLUE_SIZE = 0.95;
-const LABEL_MIN_PX = 44;  // 左右のラベルは、マスが小さくても START / GOAL の文字が入る幅を確保する
-
-/** ラベルの矢印：スタートは盤面へ入る向き、ゴールは盤面から出る向き */
-const ARROWS = {
-  start: { left: '▶', right: '◀', top: '▼', bottom: '▲' },
-  goal: { left: '◀', right: '▶', top: '▲', bottom: '▼' },
-};
 
 export class BoardRenderer {
   /**
@@ -55,17 +46,10 @@ export class BoardRenderer {
     board.style.setProperty('--fruit-color', this.fruit.color);
     board.style.setProperty('--fruit-light', this.fruit.light);
 
-    const has = (side) => start.side === side || goal.side === side;
-    this.trackFactors = {
-      top: has('top') ? LABEL_SIZE : NO_LABEL_SIZE,
-      bottom: has('bottom') ? LABEL_SIZE : NO_LABEL_SIZE,
-      left: has('left') ? LABEL_SIZE : NO_LABEL_SIZE,
-      right: has('right') ? LABEL_SIZE : NO_LABEL_SIZE,
-    };
+    this.trackFactors = { top: EDGE_SIZE, bottom: EDGE_SIZE, left: EDGE_SIZE, right: EDGE_SIZE };
     const f = this.trackFactors;
     const t = (x) => `calc(var(--cell) * ${x})`;
-    const side = (x) => (x === LABEL_SIZE ? `max(${t(x)}, ${LABEL_MIN_PX}px)` : t(x));
-    board.style.gridTemplateColumns = `${side(f.left)} repeat(${cols}, var(--cell)) ${t(CLUE_SIZE)} ${side(f.right)}`;
+    board.style.gridTemplateColumns = `${t(f.left)} repeat(${cols}, var(--cell)) ${t(CLUE_SIZE)} ${t(f.right)}`;
     board.style.gridTemplateRows = `${t(f.top)} ${t(CLUE_SIZE)} repeat(${rows}, var(--cell)) ${t(f.bottom)}`;
 
     const place = (el, row, col) => { el.style.gridRow = String(row); el.style.gridColumn = String(col); board.appendChild(el); };
@@ -96,9 +80,8 @@ export class BoardRenderer {
           mark.setAttribute('aria-hidden', 'true');
           el.appendChild(mark);
         }
-        // START・GOAL は必ず通るので、はじめから ○ を表示する（メモとしては編集できない）
-        if (r === start.row && c === start.col) el.classList.add('start', 'end-circle');
-        if (r === goal.row && c === goal.col) el.classList.add('goal', 'end-circle');
+        // 青マス（2 つの端）。どちらから道を始めてもよい。必ず通るのでメモは付けられない
+        if ((r === start.row && c === start.col) || (r === goal.row && c === goal.col)) el.classList.add('end');
         place(el, r + 3, c + 2);
         rowEls.push(el);
       }
@@ -110,29 +93,6 @@ export class BoardRenderer {
       place(clue, r + 3, cols + 2);
       this.rowClueEls.push(clue);
     }
-    // スタート・ゴールのラベル
-    for (const kind of ['start', 'goal']) {
-      const pt = this.puzzle[kind];
-      const el = document.createElement('div');
-      el.className = `edge-label ${kind} side-${pt.side}`;
-      const arrow = `<span class="arrow">${ARROWS[kind][pt.side]}</span>`;
-      const text = `<span class="text">${kind === 'start' ? 'START' : 'GOAL'}</span>`;
-      // 矢印がマス側に来るように並べる
-      el.innerHTML = (pt.side === 'left' || pt.side === 'top') ? text + arrow : arrow + text;
-      const pos = {
-        top: [1, pt.col + 2], bottom: [rows + 3, pt.col + 2],
-        left: [pt.row + 3, 1], right: [pt.row + 3, cols + 3],
-      }[pt.side];
-      place(el, pos[0], pos[1]);
-      // 右側・上側のラベルは数字の列／行をはさむので、つなぎの点線を入れて対応を分かりやすくする
-      if (pt.side === 'right' || pt.side === 'top') {
-        const bridge = document.createElement('div');
-        bridge.className = `edge-bridge ${kind} ${pt.side === 'top' ? 'vertical' : ''}`;
-        if (pt.side === 'right') place(bridge, pt.row + 3, cols + 2);
-        else place(bridge, 2, pt.col + 2);
-      }
-    }
-
     // メッセージ・演出用のレイヤー
     this.fx = document.createElement('div');
     this.fx.className = 'board-fx';
@@ -147,14 +107,7 @@ export class BoardRenderer {
     const f = this.trackFactors;
     const { rows, cols } = this.puzzle;
     const hUnits = rows + CLUE_SIZE + f.top + f.bottom;
-    // 横方向：左右のラベル列は「マス 1 個分」か LABEL_MIN_PX の大きいほう
-    const lr = [f.left, f.right];
-    let widthCell = maxWidth / (cols + CLUE_SIZE + f.left + f.right);
-    if (lr.some((x) => x === LABEL_SIZE && widthCell * x < LABEL_MIN_PX)) {
-      const fixedPx = lr.filter((x) => x === LABEL_SIZE).length * LABEL_MIN_PX;
-      const units = cols + CLUE_SIZE + lr.filter((x) => x !== LABEL_SIZE).reduce((a, b) => a + b, 0);
-      widthCell = (maxWidth - fixedPx) / units;
-    }
+    const widthCell = maxWidth / (cols + CLUE_SIZE + f.left + f.right);
     const cell = Math.floor(Math.max(min, Math.min(max, widthCell, maxHeight / hUnits)));
     this.board.style.setProperty('--cell', `${cell}px`);
     if (this.guide) this._drawGuide(); // マスの大きさが変わったらガイドも描き直す
@@ -167,11 +120,11 @@ export class BoardRenderer {
    * @param {import('./memo.js').MemoBoard} [memo]  推理メモ（ルートが通っているマスではルート表示を優先）
    */
   update(game, memo = null) {
-    const { rows, cols, start, goal } = this.puzzle;
+    const { rows, cols } = this.puzzle;
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const el = this.cellEls[r][c];
-        el.classList.remove('visited', 'head', 'link-up', 'link-down', 'link-left', 'link-right');
+        el.classList.remove('visited', 'head', 'target', 'link-up', 'link-down', 'link-left', 'link-right');
         el.style.removeProperty('--order');
         const v = memo && !game.isVisited(r, c) ? memo.get(r, c) : 0;
         el.classList.toggle('memo-on', v === 1);
@@ -188,13 +141,8 @@ export class BoardRenderer {
         el.classList.add(`link-${LINK_DIR[`${nb[0] - r},${nb[1] - c}`]}`);
       }
     });
-    // スタートは常に外側の START とつなぐ。ゴールは到達したら GOAL とつなぐ。
-    this.cellEls[start.row][start.col].classList.add(`link-${SIDE_TO_DIR[start.side]}`);
-    const [hr, hc] = game.head;
-    if (hr === goal.row && hc === goal.col) {
-      this.cellEls[goal.row][goal.col].classList.add(`link-${SIDE_TO_DIR[goal.side]}`);
-    }
-    this.cellEls[hr][hc].classList.add('head');
+    if (game.head) this.cellEls[game.head[0]][game.head[1]].classList.add('head');
+    if (game.target) this.cellEls[game.target.row][game.target.col].classList.add('target'); // 向かっている青マス
 
     for (let r = 0; r < rows; r++) this._setClue(this.rowClueEls[r], game.rowState(r));
     for (let c = 0; c < cols; c++) this._setClue(this.colClueEls[c], game.colState(c));
@@ -272,9 +220,12 @@ export class BoardRenderer {
     }
     // なぞり終えたところ（ガイドと同じ順に通っている部分）を数える
     const route = this._lastRoute || [];
+    // どちらの青マスから始めてもよいので、道の始まりに合わせてガイドの向きをそろえる
+    const last = this.guide[this.guide.length - 1];
+    const guide = route.length && route[0][0] === last[0] && route[0][1] === last[1] ? [...this.guide].reverse() : this.guide;
     let k = 0;
-    while (k < route.length && k < this.guide.length && route[k][0] === this.guide[k][0] && route[k][1] === this.guide[k][1]) k++;
-    const rest = this.guide.slice(Math.max(0, k - 1));
+    while (k < route.length && k < guide.length && route[k][0] === guide[k][0] && route[k][1] === guide[k][1]) k++;
+    const rest = guide.slice(Math.max(0, k - 1));
     const svg = this.guideEl;
     const w = this.board.clientWidth, h = this.board.clientHeight;
     svg.setAttribute('viewBox', `0 0 ${w} ${h}`);

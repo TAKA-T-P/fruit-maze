@@ -147,7 +147,7 @@ test('全250問：まちがったルートには、ルートの見直しだけ�
   for (const p of ALL) {
     for (const frac of [0.3, 0.6]) {
       const k = Math.max(1, Math.floor(p.solution.length * frac));
-      const g = new PuzzleGame(p);
+      const g = new PuzzleGame(p, { startFrom: 'start' });
       for (const [r, c] of p.solution.slice(1, k)) g.moveTo(r, c);
       const [hr, hc] = g.head;
       const [nr, nc] = p.solution[k];
@@ -260,7 +260,7 @@ test('すべて分かっている盤面・クリア済みの盤面では、無�
 
 test('ヒントを出してもルート・メモは変わらない', () => {
   const p = ALL[200];
-  const g = new PuzzleGame(p);
+  const g = new PuzzleGame(p, { startFrom: 'start' });
   for (const [r, c] of p.solution.slice(1, 6)) g.moveTo(r, c);
   const m = new MemoBoard(p);
   const sol = solSet(p);
