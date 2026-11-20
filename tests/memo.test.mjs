@@ -211,3 +211,20 @@ test('設定：ボタン表示の設定はなくなった（5ボタンが標準�
   assert.equal(s.get('sound'), false, 'ほかの設定はそのまま');
   assert.equal(s.set('buttons', 'five'), false);
 });
+
+test('推理メモ：snapshot / restore（「1つ戻る」用）', () => {
+  const m = new MemoBoard(P);
+  const s0 = m.snapshot();
+  const fruits = [];
+  for (let r = 0; r < P.rows && fruits.length < 2; r++) for (let c = 0; c < P.cols; c++) if (m.canEdit(r, c)) fruits.push([r, c]);
+  m.set(fruits[0][0], fruits[0][1], MEMO.ON);
+  const s1 = m.snapshot();
+  m.set(fruits[1][0], fruits[1][1], MEMO.OFF);
+  m.restore(s1);
+  assert.equal(m.get(fruits[0][0], fruits[0][1]), MEMO.ON);
+  assert.equal(m.get(fruits[1][0], fruits[1][1]), MEMO.NONE);
+  m.restore(s0);
+  assert.equal(m.hasAny(), false);
+  m.restore(new Uint8Array(3)); // 大きさがちがうものは無視
+  assert.equal(m.hasAny(), false);
+});

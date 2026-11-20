@@ -222,6 +222,7 @@ function startPuzzle(puzzle) {
   // タイムアタックでは数字をこえて進める（こえた数字は赤。もう一つの青マスで数字がぴったりのときだけクリア）
   state.game = new PuzzleGame(puzzle, { allowClueOverflow: ta });
   state.memo = new MemoBoard(puzzle);   // 問題が変わったらメモは新しく
+  resetUndo();                          // 「1つ戻る」の記録も新しく
   state.hint = ta ? null : new HintSession(puzzle); // タイムアタックではヒントなし
   state.hintUsed = false;               // ステージを始めるたび（もういちど・次のステージを含む）にリセット
   closeHint();
@@ -270,7 +271,44 @@ function refresh() {
   $('#btn-reset').disabled = (g.route.length === 0 && !state.memo.hasAny()) || cleared;
   $('#btn-hint-five').disabled = cleared;
   document.querySelectorAll('#ctrl-five .five-btn').forEach((b) => { b.disabled = cleared; });
+  $('#btn-undo').disabled = cleared || undoHistory.length === 0;
 }
+
+// ---- ↩ 1つ戻る：ルート・○・× の操作を、1手ずつ前の状態にもどす（最大 UNDO_LIMIT 手） ----
+const UNDO_LIMIT = 16;
+const undoHistory = [];   // 変える前の状態（古い順）
+let undoCurrent = null;   // 今の状態
+let undoGroup = null;     // メモのなぞり（1 回の操作）をまとめる目印
+const takeSnapshot = () => ({ route: state.game.route.map(([r, c]) => [r, c]), memo: state.memo.snapshot() });
+function resetUndo() {
+  undoHistory.length = 0;
+  undoCurrent = takeSnapshot();
+  undoGroup = null;
+}
+/** 盤面が変わったあとに呼ぶ。group が同じ間（同じなぞりの中）は 1 手にまとめる */
+function recordChange(group = null) {
+  if (!undoCurrent) undoCurrent = takeSnapshot();
+  if (!(group && group === undoGroup)) {
+    undoHistory.push(undoCurrent);
+    if (undoHistory.length > UNDO_LIMIT) undoHistory.shift();
+  }
+  undoGroup = group;
+  undoCurrent = takeSnapshot();
+}
+function undoStep() {
+  if (!state.game || state.game.status === STATUS.CLEARED || state.taBusy || !undoHistory.length) return;
+  const snap = undoHistory.pop();
+  // ルートは最初からたどり直す（数・状態はエンジンが計算し直す）
+  state.game.reset();
+  for (const [r, c] of snap.route) state.game.moveTo(r, c);
+  state.memo.restore(snap.memo);
+  undoCurrent = takeSnapshot();
+  undoGroup = null;
+  sound.play('undo');
+  setMessage(defaultMessage());
+  refresh();
+}
+$('#btn-undo').addEventListener('click', () => { closeHint(); undoStep(); });
 
 /** ヒントに渡す今の盤面 */
 const boardState = () => ({ route: state.game.route, memo: state.memo.entries(), cleared: state.game.status === STATUS.CLEARED });
@@ -346,6 +384,7 @@ function defaultMessage() { return ''; }
 /** 入力 1 回ごとの結果を処理する */
 function handleResult(res) {
   const g = state.game;
+  if (res.type === MOVE.MOVED || res.type === MOVE.UNDONE) recordChange(); // ルートが変わった（「1つ戻る」用に記録）
   switch (res.type) {
     case MOVE.MOVED:
       if (g.status === STATUS.CLEARED) return isTa() ? onTaSolved() : onCleared();
@@ -463,6 +502,7 @@ $('#btn-reset').addEventListener('click', () => {
   disarmReset();
   state.game.reset();
   state.memo.clear();
+  recordChange(); // はじめからにしたことも「1つ戻る」で取り消せる
   sound.play('undo');
   setMessage(defaultMessage());
   refresh();
@@ -604,7 +644,7 @@ const controls = new BoardControls($('#board-area'), {
   onUndoKey: undo,
   getMode: () => state.mode,
   getMemo: () => state.memo,
-  onMemo: () => { sound.unlockAudio(); sound.play('tap'); refresh(); },
+  onMemo: () => { sound.unlockAudio(); sound.play('tap'); recordChange(`memo:${controls.strokeId}`); refresh(); },
   // ヒント・設定・やめる確認・タイムアタックの演出中は盤面を操作しない
   isBlocked: () => hintPanel.isOpen || !$('#settings').hidden || !$('#ta-quit').hidden || !$('#transfer').hidden || state.taBusy,
   onBlocked: () => closeHint(),            // 盤面をタップしたらヒントを閉じるだけ
@@ -814,7 +854,7 @@ function showTaResults() {
   renderTaResult($('#ta-result'), { level: ta.level, clears: ta.clears, result, reason: ta.endReason });
   exitTa();
   show('ta-result');
-  sound.play(result.newRecord || result.titleUp ? 'reward' : 'tap');
+  sound.play(result.newRecord || result.titleUp ? 'fanfareBig' : 'fanfare'); // 結果はいつもファンファーレ。記録更新・称号アップはさらにキラキラ
   $('#btn-ta-retry').focus({ preventScroll: true });
 }
 

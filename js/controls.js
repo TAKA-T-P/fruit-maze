@@ -66,6 +66,7 @@ export class BoardControls {
     e.preventDefault();
     if (this.isBlocked()) { this.onBlocked(); return; } // ヒント表示中：最初のタップはヒントを閉じるだけ
     this.pointerId = e.pointerId;
+    this.strokeId = (this.strokeId || 0) + 1; // 1 回の操作の番号（メモのなぞりを「1手」にまとめるため）
     try { this.surface.setPointerCapture(e.pointerId); } catch { /* 古いブラウザ */ }
     const cell = renderer.cellFromPoint(e.clientX, e.clientY, TAP_TOLERANCE);
     this.lastCellKey = cell ? `${cell.row},${cell.col}` : null;

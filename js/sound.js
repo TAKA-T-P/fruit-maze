@@ -40,7 +40,27 @@ const SOUNDS = {
   // フルーツ解放・トロフィー獲得：キラキラ上がっていく音
   reward: () => [784, 988, 1175, 1568, 1319, 1568].forEach((f, i) => tone(f, { start: i * 0.07, dur: i === 5 ? 0.35 : 0.14, type: 'sine', gain: 0.1 })),
   tap: () => tone(880, { dur: 0.04, type: 'sine', gain: 0.05 }),
+  // タイムアタックの結果：「パッパッパッ パーン！」の短いファンファーレ（記録更新でなくても鳴らす）
+  fanfare: () => fanfare(0),
+  // 記録更新・称号アップ：ファンファーレのあとに、キラキラ上がっていく音を重ねる
+  fanfareBig: () => {
+    fanfare(0);
+    [1319, 1568, 1760, 2093, 2637].forEach((f, i) => tone(f, { start: 0.78 + i * 0.07, dur: i === 4 ? 0.4 : 0.12, type: 'sine', gain: 0.07 }));
+  },
 };
+
+/** ド・ミ・ソと上がって、ドミソ＋高いドの和音で「パーン」 */
+function fanfare(at) {
+  [[392, 0], [523, 0.11], [659, 0.22]].forEach(([f, s]) => {
+    tone(f, { start: at + s, dur: 0.1, type: 'square', gain: 0.045 });
+    tone(f, { start: at + s, dur: 0.12, type: 'triangle', gain: 0.1 });
+  });
+  for (const f of [523, 659, 784, 1047]) {
+    tone(f, { start: at + 0.36, dur: 0.6, type: 'triangle', gain: 0.075 });
+    tone(f * 2, { start: at + 0.36, dur: 0.35, type: 'sine', gain: 0.02 });
+  }
+  tone(262, { start: at + 0.36, dur: 0.6, type: 'square', gain: 0.03 }); // 下のド（厚みを出す）
+}
 
 export function play(name) {
   if (!enabled) return;

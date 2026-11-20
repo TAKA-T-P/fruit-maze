@@ -196,7 +196,7 @@ export class HowTo {
         task: () => {
           if (!zeroLine) return '';
           const n = zeroLine.cells.filter(([r, c]) => this.memo.get(r, c) === MEMO.OFF).length;
-          if (n === zeroLine.cells.length) return '<span class="ok">✓ できた！ ○や×はメモだから、あとで「消す」で消すこともできるよ</span>';
+          if (n === zeroLine.cells.length) return '<span class="ok">✓ できた！ ○や×はメモだから、あとで消しゴムのボタンで消すこともできるよ</span>';
           if (this.mode !== 'memo-off') return '下の「×」ボタンを押してね';
           return `フルーツをタップして × を付けよう。なぞると続けて付けられるよ（× ${n} / ${zeroLine.cells.length}）`;
         },

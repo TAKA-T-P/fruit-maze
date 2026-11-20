@@ -64,7 +64,7 @@
             <button type="button" class="btn five-btn" data-mode="route" aria-pressed="true">ルート</button>
             <button type="button" class="btn five-btn" data-mode="memo-on" aria-pressed="false" aria-label="○を付ける">○</button>
             <button type="button" class="btn five-btn" data-mode="memo-off" aria-pressed="false" aria-label="×を付ける">×</button>
-            <button type="button" class="btn five-btn" data-mode="memo-erase" aria-pressed="false" aria-label="○・×を消す">消す</button>
+            <button type="button" class="btn five-btn" data-mode="memo-erase" aria-pressed="false" aria-label="消しゴム（○・×を消す）" title="消しゴム"><svg class="eraser-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g transform="rotate(-40 12 12)"><rect x="3.5" y="7.5" width="17" height="9" rx="2.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10.5 7.5h8a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-8z" fill="currentColor"/></g><path d="M5 21h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
             <button type="button" class="btn hint-btn five-hint" data-tool="hint" aria-label="ヒント">💡</button>
           </div>
           <button type="button" class="btn ghost" data-tool="reset"><span aria-hidden="true">↻</span> はじめから</button>
@@ -206,7 +206,8 @@
           <button type="button" class="btn five-btn" data-mode="route" aria-pressed="true">ルート</button>
           <button type="button" class="btn five-btn" data-mode="memo-on" aria-pressed="false" aria-label="○を付ける">○</button>
           <button type="button" class="btn five-btn" data-mode="memo-off" aria-pressed="false" aria-label="×を付ける">×</button>
-          <button type="button" class="btn five-btn" data-mode="memo-erase" aria-pressed="false" aria-label="○・×を消す">消す</button>
+          <button type="button" class="btn five-btn" data-mode="memo-erase" aria-pressed="false" aria-label="消しゴム（○・×を消す）" title="消しゴム"><svg class="eraser-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g transform="rotate(-40 12 12)"><rect x="3.5" y="7.5" width="17" height="9" rx="2.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10.5 7.5h8a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-8z" fill="currentColor"/></g><path d="M5 21h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+          <button type="button" id="btn-undo" class="btn undo-btn" aria-label="1つ戻る" disabled>↩</button>
           <button type="button" id="btn-hint-five" class="btn hint-btn five-hint" aria-label="ヒント">💡</button>
         </div>
       </div>

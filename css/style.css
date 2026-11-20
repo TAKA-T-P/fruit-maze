@@ -1199,3 +1199,35 @@ button { font-family: inherit; touch-action: manipulation; }
   animation: badge-twinkle 1.1s ease-in-out infinite;
 }
 @keyframes badge-twinkle { 0%, 100% { opacity: .3; transform: scale(.85); } 50% { opacity: 1; transform: scale(1.15); } }
+
+/* ↩ 1つ戻る（操作ボタンの「消す」の右）。6 ボタンでも 1 行に収める */
+.ctrl-five .undo-btn { border: 2px solid var(--line-soft); font-size: 1.3rem; font-weight: 900; color: var(--ink); font-family: var(--font), var(--emoji); }
+.ctrl-five .undo-btn:disabled { opacity: .4; }
+@media (max-width: 430px) {
+  .ctrl-five { gap: 5px; }
+  .ctrl-five .btn { min-height: 48px; padding: 4px 1px; }
+  .ctrl-five .five-btn[data-mode="route"] { font-size: .88rem; flex-grow: 1.4; }
+  .ctrl-five .five-btn[data-mode="memo-erase"] { font-size: .92rem; }
+}
+@media (max-width: 340px) {
+  .ctrl-five { gap: 4px; }
+  .ctrl-five .five-btn[data-mode="route"] { font-size: .8rem; }
+  .ctrl-five .five-btn[data-mode="memo-erase"] { font-size: .82rem; }
+}
+/* 横向き：右側の欄はせまいので、6 ボタンの文字を小さく */
+@media (orientation: landscape) and (max-height: 560px) {
+  .ctrl-five { gap: 4px; }
+  .ctrl-five .btn { padding: 4px 0; font-size: .95rem; }
+  .ctrl-five .five-btn[data-mode="route"] { font-size: .74rem; letter-spacing: -.04em; flex-grow: 1.5; }
+  .ctrl-five .five-btn[data-mode="memo-erase"] { font-size: .76rem; letter-spacing: -.04em; }
+  .ctrl-five .five-btn[data-mode="memo-on"], .ctrl-five .five-btn[data-mode="memo-off"] { font-size: 1.15rem; }
+  .ctrl-five .undo-btn, .ctrl-five .five-hint { font-size: 1.1rem; }
+}
+
+/* 「消す」は消しゴムのアイコン（色は文字色に合わせる。選んでいるときは白） */
+.five-btn[data-mode="memo-erase"] { display: inline-flex; align-items: center; justify-content: center; }
+.eraser-icon { width: 1.55em; height: 1.55em; display: block; }
+.ctrl-five .five-btn[data-mode="memo-erase"], .howto-tools .howto-five .five-btn[data-mode="memo-erase"] { font-size: 1rem; letter-spacing: 0; }
+@media (orientation: landscape) and (max-height: 560px) {
+  .ctrl-five .five-btn[data-mode="memo-erase"] { font-size: .85rem; }
+}

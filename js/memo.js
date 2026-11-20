@@ -125,6 +125,10 @@ export class MemoBoard {
   endStroke() { this.stroke = null; }
 
   clear() { const had = this.hasAny(); this.cells.fill(MEMO.NONE); return had; }
+  /** 今のメモの状態（「1つ戻る」用） */
+  snapshot() { return Uint8Array.from(this.cells); }
+  /** snapshot() でとった状態にもどす */
+  restore(snap) { if (snap && snap.length === this.cells.length) this.cells.set(snap); }
   hasAny() { return this.cells.some((v) => v !== MEMO.NONE); }
   count(value) { let n = 0; for (const v of this.cells) if (v === value) n++; return n; }
 
