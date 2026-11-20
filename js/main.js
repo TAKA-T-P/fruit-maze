@@ -24,6 +24,7 @@ import { createChallengeStore } from './challenge-storage.js';
 import { COUNTDOWN_STEP_MS, CLEAR_FX_MS, TIMEUP_MS, LOW_TIME_SECONDS } from './challenge-config.js';
 import { titleFor, nextTitle, MASTER_TITLE_ID } from './challenge-titles.js';
 import { renderTaSelect, renderTaIntro, renderTaResult, renderTaRecords } from './challenge-ui.js';
+import { TransferDialog } from './transfer-ui.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 
@@ -545,6 +546,8 @@ function openSettings() {
   $('#btn-reset').hidden = !inGame;
   // タイトル画面から開いたときは「KEC数学科ラボへ」を出す
   $('#link-portal').hidden = !$('#screen-title').classList.contains('active');
+  // 記録の引継ぎ：タイムアタック中は出さない（時間が進むため）
+  $('#transfer-section').hidden = isTa();
   $('#settings').hidden = false;
   if (inGame && isTa()) {
     // タイムアタック：盤面は隠すが、時間は止まらない
@@ -587,7 +590,8 @@ $('#settings').addEventListener('click', (e) => {
 });
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
-  if (!$('#settings').hidden) closeSettings();
+  if (transfer.isOpen) transfer.close();
+  else if (!$('#settings').hidden) closeSettings();
   else if (!$('#ta-quit').hidden) closeTaQuit();
   else if (!$('#ta-howto').hidden) closeTaHowto();
 });
@@ -602,7 +606,7 @@ const controls = new BoardControls($('#board-area'), {
   getMemo: () => state.memo,
   onMemo: () => { sound.unlockAudio(); sound.play('tap'); refresh(); },
   // ヒント・設定・やめる確認・タイムアタックの演出中は盤面を操作しない
-  isBlocked: () => hintPanel.isOpen || !$('#settings').hidden || !$('#ta-quit').hidden || state.taBusy,
+  isBlocked: () => hintPanel.isOpen || !$('#settings').hidden || !$('#ta-quit').hidden || !$('#transfer').hidden || state.taBusy,
   onBlocked: () => closeHint(),            // 盤面をタップしたらヒントを閉じるだけ
   onToggleMode: () => cycleMode(),         // M キー
 });
@@ -978,6 +982,29 @@ function initCollection() {
   if (!rewards.isEmpty) setTimeout(() => showRewards(rewards), 400); // 前回、演出の前にとじた場合など
 }
 
+// ---------------- 記録の引継ぎ ----------------
+const TRANSFER_DONE = 'fruitMaze.transferDone'; // 再読み込みのあとで「記録を引きついだよ！」を出すための目印（sessionStorage）
+const transfer = new TransferDialog($('#transfer'), {
+  getBackend: () => { try { return window.localStorage; } catch { return null; } },
+  onRestored: () => {
+    // すべての記録を読みこみ直すため、ページを再読み込みする
+    try { sessionStorage.setItem(TRANSFER_DONE, '1'); } catch { /* 出せなくてもよい */ }
+    location.reload();
+  },
+  toast: (t) => showToast(t),
+  sound: (n) => sound.play(n),
+});
+$('#btn-transfer-export').addEventListener('click', () => { sound.play('tap'); closeSettings(); transfer.openExport(); });
+$('#btn-transfer-import').addEventListener('click', () => { sound.play('tap'); closeSettings(); transfer.openImport(); });
+function showTransferDone() {
+  try {
+    if (sessionStorage.getItem(TRANSFER_DONE)) {
+      sessionStorage.removeItem(TRANSFER_DONE);
+      setTimeout(() => showToast('記録を引きついだよ！', 3000), 300);
+    }
+  } catch { /* なし */ }
+}
+
 // ---------------- 起動 ----------------
 async function boot() {
   try {
@@ -988,6 +1015,7 @@ async function boot() {
       return { pages: { route: state.library.tutorial } };
     });
     initCollection();
+    showTransferDone();
     document.body.classList.remove('loading');
   } catch (err) {
     console.error(err);

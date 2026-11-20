@@ -9,6 +9,9 @@
 //     completeAt: null   // 5 難易度すべてで最高称号になった日時（一度なったら残す）
 //   }
 // 最後まで遊んだ挑戦だけを記録する（途中でやめた挑戦は記録しない・プレイ回数にも数えない）。
+// 引継ぎコードから復元した記録では、日時・回数は分からないので null（不明）になる。
+//   ・称号・最高称号・完全制覇は bestClears だけから判定する（日時がなくても正しく出る）
+//   ・「はじめて最高称号」「完全制覇」の演出は、前の最高記録との比較で決める（日時の有無に左右されない）
 
 import { TA_LEVELS } from './challenge-config.js';
 import { titleFor, isMaster, allMaster } from './challenge-titles.js';
@@ -36,6 +39,7 @@ export function createChallengeStore(backend = safeLocalStorage()) {
           const L = out.levels[String(c.level)];
           if (nonNegInt(s.bestClears)) L.bestClears = s.bestClears;
           if (nonNegInt(s.playCount)) L.playCount = s.playCount;
+          else if (s.playCount === null) L.playCount = null; // 不明（引継ぎコードから復元した記録）
           if (nonNegInt(s.lastClears)) L.lastClears = s.lastClears;
           L.bestAt = isoOrNull(s.bestAt);
           L.masterAchievedAt = isoOrNull(s.masterAchievedAt);
@@ -54,8 +58,8 @@ export function createChallengeStore(backend = safeLocalStorage()) {
     /** 難易度ごとの記録（コピー） */
     get(level) { return { ...data.levels[String(level)] }; },
     bestByLevel() { return Object.fromEntries(TA_LEVELS.map((c) => [c.level, data.levels[String(c.level)].bestClears])); },
-    /** 5 難易度すべてで最高称号になったことがある */
-    isComplete() { return !!data.completeAt; },
+    /** 5 難易度すべてで最高称号（最高記録から判定。日時が不明な引継ぎ記録でも正しく出る） */
+    isComplete() { return !!data.completeAt || allMaster(this.bestByLevel()); },
     completeAt() { return data.completeAt; },
     /**
      * 最後まで遊んだ挑戦の結果を記録する。
@@ -68,15 +72,17 @@ export function createChallengeStore(backend = safeLocalStorage()) {
       const iso = now.toISOString();
       const prevBest = L.bestClears;
       const prevTitle = titleFor(level, prevBest);
-      L.playCount++;
+      const prevAllMaster = allMaster(this.bestByLevel());
+      L.playCount = (L.playCount ?? 0) + 1; // 不明（null）のときは、この端末で遊んだ回数から数える
       L.lastClears = clears;
       L.lastPlayedAt = iso;
       const newRecord = clears > prevBest;
       if (newRecord) { L.bestClears = clears; L.bestAt = iso; }
       const title = titleFor(level, L.bestClears);
-      const firstMaster = isMaster(level, L.bestClears) && !L.masterAchievedAt;
+      // 今回はじめて最高称号に届いた（前の最高記録では届いていなかった）
+      const firstMaster = isMaster(level, L.bestClears) && !isMaster(level, prevBest);
       if (firstMaster) L.masterAchievedAt = iso;
-      const newlyComplete = !data.completeAt && allMaster(this.bestByLevel());
+      const newlyComplete = !prevAllMaster && allMaster(this.bestByLevel());
       if (newlyComplete) data.completeAt = iso;
       write();
       return {

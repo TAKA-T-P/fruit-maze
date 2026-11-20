@@ -46,6 +46,14 @@ export function renderTaIntro(el, level, store) {
     </ul>`;
 }
 
+/** 称号の格：最高称号は金色（gold）、上から 2 番目は銀色（silver） */
+function rankClass(level, t) {
+  if (!t) return '';
+  const list = titlesOf(level);
+  const fromTop = list.length - 1 - list.findIndex((x) => x.id === t.id);
+  return fromTop === 0 ? ' gold' : fromTop === 1 ? ' silver' : '';
+}
+
 /** 結果画面 */
 export function renderTaResult(el, { level, clears, result, reason }) {
   const c = taConfig(level);
@@ -61,7 +69,7 @@ export function renderTaResult(el, { level, clears, result, reason }) {
     </div>
     ${result.firstMaster ? `<p class="ta-res-master">${masterTitleOf(level).icon} ${masterTitleOf(level).name} 達成！</p>` : ''}
     ${result.newlyComplete ? '<p class="ta-res-master">🌟 タイムアタック完全制覇！</p>' : ''}
-    <div class="ta-res-title${result.titleUp ? ' up' : ''}">
+    <div class="ta-res-title${result.titleUp ? ' up' : ''}${rankClass(level, t)}">
       ${result.titleUp ? '<span class="ta-res-up">称号アップ！</span>' : ''}
       <span class="ta-res-title-name">${t ? `${t.icon} ${t.name}` : 'まだ称号はないよ。まずは1問クリアをめざそう！'}</span>
     </div>
@@ -79,7 +87,7 @@ export function renderTaRecords(el, store) {
         <div class="ta-rec-head"><span class="level-stars">${c.stars}</span><span class="ta-rec-time">⏱️ ${timeText(c.normalSeconds)}</span><span class="ta-rec-best">最高 <b>${rec.bestClears}</b>問</span></div>
         <div class="ta-rec-title">${titleLabel(t)}</div>
         <div class="ta-ladder" aria-hidden="true">${ladder}</div>
-        <div class="ta-rec-foot"><span>${nextTitleText(c.level, rec.bestClears)}</span><span>あそんだ回数 ${rec.playCount}回</span></div>
+        <div class="ta-rec-foot"><span>${nextTitleText(c.level, rec.bestClears)}</span><span>あそんだ回数 ${rec.playCount == null ? 'ー' : `${rec.playCount}回`}</span></div>
       </div>`;
   }).join('');
   el.innerHTML = `

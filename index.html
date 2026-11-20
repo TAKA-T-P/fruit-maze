@@ -262,10 +262,22 @@
         </div>
         <p class="setting-note" id="clue-note"></p>
         <button type="button" id="btn-reset" class="btn ghost setting-reset"><span aria-hidden="true">↻</span> <span class="label">はじめから</span></button>
+        <!-- 記録の引継ぎ（タイムアタック中は出さない） -->
+        <section id="transfer-section" class="setting-transfer" aria-labelledby="transfer-title">
+          <h3 id="transfer-title" class="setting-name">記録の引継ぎ</h3>
+          <p class="setting-note">あそんだ記録を、ほかのスマホやタブレットに引きつげるよ！</p>
+          <button type="button" id="btn-transfer-export" class="btn secondary">📋 引継ぎコードをつくる</button>
+          <button type="button" id="btn-transfer-import" class="btn secondary">📥 引継ぎコードを読みこむ</button>
+        </section>
         <button type="button" id="btn-settings-close" class="btn primary">とじる</button>
         <!-- タイトル画面から開いたときだけ表示 -->
         <a id="link-portal" class="btn secondary portal-link" href="https://taka-t-p.github.io/math-app-portal/" hidden>KEC数学科ラボへ <span aria-hidden="true">↗</span></a>
       </div>
+    </div>
+
+    <!-- 引継ぎコード（つくる・読みこむ・確認）。中身は transfer-ui.js で表示する -->
+    <div id="transfer" class="modal-overlay" hidden>
+      <div class="modal-card transfer-card" role="dialog" aria-modal="true" aria-label="記録の引継ぎ"></div>
     </div>
 
     <!-- タイムアタック：せつめい（むずかしさ選択の「せつめい」から） -->
