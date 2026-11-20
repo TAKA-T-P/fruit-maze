@@ -25,6 +25,7 @@ import { COUNTDOWN_STEP_MS, CLEAR_FX_MS, TIMEUP_MS, LOW_TIME_SECONDS } from './c
 import { titleFor, nextTitle, MASTER_TITLE_ID } from './challenge-titles.js';
 import { renderTaSelect, renderTaIntro, renderTaResult, renderTaRecords } from './challenge-ui.js';
 import { TransferDialog } from './transfer-ui.js';
+import { eraseRecords } from './transfer-code.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 
@@ -585,9 +586,11 @@ function openSettings() {
   renderSettings();
   $('#btn-reset').hidden = !inGame;
   // タイトル画面から開いたときは「KEC数学科ラボへ」を出す
-  $('#link-portal').hidden = !$('#screen-title').classList.contains('active');
+  // タイトル画面から開いたときだけ「KEC数学科ラボへ」「記録の引継ぎ」「記録を消す」を出す（プレイ中は出さない）
+  const fromTitle = $('#screen-title').classList.contains('active');
+  $('#link-portal').hidden = !fromTitle;
   // 記録の引継ぎ：タイムアタック中は出さない（時間が進むため）
-  $('#transfer-section').hidden = isTa();
+  $('#transfer-section').hidden = !fromTitle;
   $('#settings').hidden = false;
   if (inGame && isTa()) {
     // タイムアタック：盤面は隠すが、時間は止まらない
@@ -630,7 +633,8 @@ $('#settings').addEventListener('click', (e) => {
 });
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
-  if (transfer.isOpen) transfer.close();
+  if (!$('#erase-confirm').hidden) closeErase();
+  else if (transfer.isOpen) transfer.close();
   else if (!$('#settings').hidden) closeSettings();
   else if (!$('#ta-quit').hidden) closeTaQuit();
   else if (!$('#ta-howto').hidden) closeTaHowto();
@@ -1038,12 +1042,34 @@ $('#btn-transfer-export').addEventListener('click', () => { sound.play('tap'); c
 $('#btn-transfer-import').addEventListener('click', () => { sound.play('tap'); closeSettings(); transfer.openImport(); });
 function showTransferDone() {
   try {
-    if (sessionStorage.getItem(TRANSFER_DONE)) {
+    const done = sessionStorage.getItem(TRANSFER_DONE);
+    if (done) {
       sessionStorage.removeItem(TRANSFER_DONE);
-      setTimeout(() => showToast('記録を引きついだよ！', 3000), 300);
+      setTimeout(() => showToast(done === 'erased' ? '記録を消したよ' : '記録を引きついだよ！', 3000), 300);
     }
   } catch { /* なし */ }
 }
+
+// ---- 記録を消す（タイトル画面の設定から。確認してから） ----
+function closeErase() { $('#erase-confirm').hidden = true; }
+$('#btn-erase').addEventListener('click', () => {
+  sound.play('tap');
+  closeSettings();
+  $('#erase-status').textContent = '';
+  $('#erase-confirm').hidden = false;
+  $('#btn-erase-no').focus({ preventScroll: true });
+});
+$('#btn-erase-no').addEventListener('click', () => { sound.play('tap'); closeErase(); });
+$('#erase-confirm').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeErase(); });
+$('#btn-erase-yes').addEventListener('click', () => {
+  sound.play('tap');
+  let backend = null;
+  try { backend = window.localStorage; } catch { backend = null; }
+  const res = eraseRecords(backend);
+  if (!res.ok) { $('#erase-status').textContent = '記録を消せなかったよ。もう一度ためしてね'; return; }
+  try { sessionStorage.setItem(TRANSFER_DONE, 'erased'); } catch { /* 出せなくてもよい */ }
+  location.reload(); // すべての画面を、記録がない状態で読みこみ直す
+});
 
 // ---------------- 起動 ----------------
 async function boot() {

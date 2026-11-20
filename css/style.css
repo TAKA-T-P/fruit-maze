@@ -1231,3 +1231,7 @@ button { font-family: inherit; touch-action: manipulation; }
 @media (orientation: landscape) and (max-height: 560px) {
   .ctrl-five .five-btn[data-mode="memo-erase"] { font-size: .85rem; }
 }
+
+/* 記録を消す */
+.setting-transfer .erase-btn { color: var(--goal); border-color: #f1b8b8; margin-top: 4px; }
+.erase-yes { background: var(--goal); box-shadow: 0 4px 0 #a51d1d; }

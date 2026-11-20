@@ -222,3 +222,15 @@ test('読みこみ・確認だけでは、保存データを変えない', () =>
   decodeCode('FM1-broken');
   assert.equal(JSON.stringify([...b._m]), snapshot);
 });
+
+test('記録を消す：クリア・コレクション・タイムアタックを消し、設定は残す', async () => {
+  const { eraseRecords, ERASE_KEYS } = await import('../js/transfer-code.js');
+  const { b } = playedBackend(40, { seed: 8, ta: [3, 2, 1, 0, 0], sound: false });
+  const settingsBefore = b.getItem(SETTINGS_KEY);
+  assert.equal(eraseRecords(b).ok, true);
+  for (const k of ERASE_KEYS) assert.equal(b.getItem(k), null, k);
+  assert.equal(b.getItem(SETTINGS_KEY), settingsBefore);
+  assert.equal(createStore(b).clearedIds().length, 0);
+  assert.deepEqual(createChallengeStore(b).bestByLevel(), { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
+  assert.equal(eraseRecords(null).ok, false);
+});

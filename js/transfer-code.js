@@ -218,6 +218,23 @@ export function applyRestore(backend, data) {
   }
 }
 
+/** 「記録を消す」で消すキー（クリア・コレクション・タイムアタック。設定は残す） */
+export const ERASE_KEYS = Object.freeze([STORAGE_KEY, COLLECTION_KEY, TIME_ATTACK_KEY]);
+
+/**
+ * 記録を消す（クリア状況・フルーツの選択と演出の履歴・タイムアタックの記録）。効果音などの設定は残す。
+ * @returns {{ok: boolean}}
+ */
+export function eraseRecords(backend) {
+  if (!backend) return { ok: false };
+  try {
+    for (const k of ERASE_KEYS) backend.removeItem(k);
+    return { ok: ERASE_KEYS.every((k) => backend.getItem(k) === null) };
+  } catch {
+    return { ok: false };
+  }
+}
+
 // ---------------------------------------------------------------- 小さな道具
 function setBit(bytes, ofs, i) { bytes[ofs + (i >> 3)] |= 1 << (i & 7); }
 function getBit(bytes, ofs, i) { return (bytes[ofs + (i >> 3)] >> (i & 7)) & 1; }

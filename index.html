@@ -263,16 +263,28 @@
         </div>
         <p class="setting-note" id="clue-note"></p>
         <button type="button" id="btn-reset" class="btn ghost setting-reset"><span aria-hidden="true">↻</span> <span class="label">はじめから</span></button>
-        <!-- 記録の引継ぎ（タイムアタック中は出さない） -->
-        <section id="transfer-section" class="setting-transfer" aria-labelledby="transfer-title">
+        <button type="button" id="btn-settings-close" class="btn primary">とじる</button>
+        <!-- ここから下は、タイトル画面から開いたときだけ表示（プレイ中は出さない） -->
+        <a id="link-portal" class="btn secondary portal-link" href="https://taka-t-p.github.io/math-app-portal/" hidden>KEC数学科ラボへ <span aria-hidden="true">↗</span></a>
+        <section id="transfer-section" class="setting-transfer" aria-labelledby="transfer-title" hidden>
           <h3 id="transfer-title" class="setting-name">記録の引継ぎ</h3>
           <p class="setting-note">あそんだ記録を、ほかのスマホやタブレットに引きつげるよ！</p>
           <button type="button" id="btn-transfer-export" class="btn secondary">📋 引継ぎコードをつくる</button>
           <button type="button" id="btn-transfer-import" class="btn secondary">📥 引継ぎコードを読みこむ</button>
+          <button type="button" id="btn-erase" class="btn ghost erase-btn">🗑️ 記録を消す</button>
         </section>
-        <button type="button" id="btn-settings-close" class="btn primary">とじる</button>
-        <!-- タイトル画面から開いたときだけ表示 -->
-        <a id="link-portal" class="btn secondary portal-link" href="https://taka-t-p.github.io/math-app-portal/" hidden>KEC数学科ラボへ <span aria-hidden="true">↗</span></a>
+      </div>
+    </div>
+
+    <!-- 記録を消す：確認 -->
+    <div id="erase-confirm" class="modal-overlay" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="erase-title">
+        <h2 id="erase-title" class="modal-title">🗑️ 記録を消す</h2>
+        <p class="tr-lead">すべてのクリア状況が<br>初期化されます。<br>本当に記録を消しますか？</p>
+        <p class="setting-note">ステージのクリア・★・フルーツ・トロフィー・タイムアタックの記録が消えるよ。（効果音などの設定は そのまま）</p>
+        <p class="tr-status error" id="erase-status" aria-live="polite"></p>
+        <button type="button" id="btn-erase-yes" class="btn primary erase-yes">はい</button>
+        <button type="button" id="btn-erase-no" class="btn secondary">いいえ</button>
       </div>
     </div>
 
