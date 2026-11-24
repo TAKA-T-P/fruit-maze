@@ -141,7 +141,6 @@
       </div>
       <div class="collect-body">
         <div id="zukan-grid" class="zukan-grid" role="list"></div>
-        <p id="zukan-detail" class="zukan-detail" aria-live="polite"></p>
       </div>
     </section>
 
@@ -285,6 +284,17 @@
         <p class="tr-status error" id="erase-status" aria-live="polite"></p>
         <button type="button" id="btn-erase-yes" class="btn primary erase-yes">はい</button>
         <button type="button" id="btn-erase-no" class="btn secondary">いいえ</button>
+      </div>
+    </div>
+
+    <!-- フルーツずかん：カードをタップしたときのポップアップ（説明文 または 解放条件） -->
+    <div id="zukan-pop" class="modal-overlay" hidden>
+      <div class="modal-card zukan-pop-card" role="dialog" aria-modal="true" aria-labelledby="zukan-pop-name">
+        <div class="zp-emoji" id="zukan-pop-emoji" aria-hidden="true"></div>
+        <h2 id="zukan-pop-name" class="modal-title"></h2>
+        <p id="zukan-pop-text" class="zp-text"></p>
+        <button type="button" id="btn-zukan-set" class="btn primary">このフルーツをセット</button>
+        <button type="button" id="btn-zukan-close" class="btn secondary">とじる</button>
       </div>
     </div>
 

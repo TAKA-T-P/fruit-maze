@@ -51,7 +51,7 @@ export function renderZukan(dom, { statuses, selectedId, newIds, random = false 
   }));
 }
 
-/** 未解放のフルーツをタップしたときの説明 */
+/** 未解放のフルーツをタップしたときの説明（解放条件だけ。フルーツの説明文は出さない） */
 export function lockedDetail(s) {
-  return `<span class="zd-emoji" aria-hidden="true">${s.fruit.emoji}</span><b>${s.fruit.name}</b>：${s.condition}<br>${s.hint}（${s.current} / ${s.need}）`;
+  return `🔒 ${s.condition}<br>${s.hint}（${s.current} / ${s.need}）`;
 }

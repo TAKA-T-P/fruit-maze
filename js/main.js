@@ -635,7 +635,8 @@ $('#settings').addEventListener('click', (e) => {
 });
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
-  if (!$('#erase-confirm').hidden) closeErase();
+  if (!$('#zukan-pop').hidden) closeZukanPop();
+  else if (!$('#erase-confirm').hidden) closeErase();
   else if (transfer.isOpen) transfer.close();
   else if (!$('#settings').hidden) closeSettings();
   else if (!$('#ta-quit').hidden) closeTaQuit();
@@ -988,8 +989,7 @@ function playTaEnding(done) { endingPlayer.play(taEnding(state.taStore.bestByLev
 let zukanStatuses = [];
 function openZukan() {
   renderZukanScreen();
-  $('#zukan-detail').innerHTML = 'フルーツを タップすると、ばんめんの フルーツが かわるよ';
-  $('#zukan-detail').classList.remove('locked-info');
+  closeZukanPop();
   show('zukan');
 }
 function renderZukanScreen() {
@@ -1007,28 +1007,48 @@ $('#zukan-grid').addEventListener('click', (e) => {
   if (!card) return;
   if (card.dataset.id === RANDOM_FRUIT_ID) {
     sound.play('tap');
-    $('#zukan-detail').classList.remove('locked-info');
-    if (!state.collection.isRandom()) selectFruit(RANDOM_FRUIT_ID);
-    else showToast('🎲 ランダムを つかっているよ');
-    $('#zukan-detail').innerHTML = '<span class="zd-emoji" aria-hidden="true">🎲</span><b>ランダム</b>：ゲットした フルーツから、ステージを はじめるたびに えらぶよ';
-    renderZukanScreen();
+    openZukanPop({ id: RANDOM_FRUIT_ID, emoji: '🎲', name: 'ランダム', text: 'ゲットした フルーツから、ステージを はじめるたびに えらぶよ' });
     return;
   }
   const st = zukanStatuses.find((s) => s.fruit.id === card.dataset.id);
   if (!st) return;
   if (!st.unlocked) {
-    // 未獲得：音は鳴らさず、獲得条件だけを表示する
-    $('#zukan-detail').innerHTML = lockedDetail(st);
-    $('#zukan-detail').classList.add('locked-info');
+    // 未獲得：音は鳴らさず、獲得条件だけを表示する（説明文は出さない）
+    openZukanPop({ emoji: st.fruit.emoji, name: st.fruit.name, html: lockedDetail(st), locked: true });
     return;
   }
-  $('#zukan-detail').classList.remove('locked-info');
   sound.play('tap');
-  if (st.fruit.id !== state.fruit.id || state.collection.isRandom()) selectFruit(st.fruit.id);
-  else showToast(`${st.fruit.emoji} ${st.fruit.name}を つかっているよ`);
-  $('#zukan-detail').innerHTML = `<span class="zd-emoji" aria-hidden="true">${st.fruit.emoji}</span><b>${st.fruit.name}</b>で あそぼう！`;
+  openZukanPop({ id: st.fruit.id, emoji: st.fruit.emoji, name: st.fruit.name, text: st.fruit.desc });
+});
+
+// ずかんのポップアップ：解放済みは説明文と「このフルーツをセット」、未解放は解放条件だけ
+let zukanPopId = null;
+function openZukanPop({ id = null, emoji, name, text = '', html = null, locked = false }) {
+  zukanPopId = locked ? null : id;
+  $('.zukan-pop-card').classList.toggle('locked', locked);
+  $('#zukan-pop-emoji').textContent = emoji;
+  $('#zukan-pop-name').textContent = name;
+  if (html != null) $('#zukan-pop-text').innerHTML = html;
+  else $('#zukan-pop-text').textContent = text;
+  $('#btn-zukan-set').hidden = locked;
+  $('#zukan-pop').hidden = false;
+  (locked ? $('#btn-zukan-close') : $('#btn-zukan-set')).focus();
+}
+function closeZukanPop() { $('#zukan-pop').hidden = true; zukanPopId = null; }
+$('#btn-zukan-set').addEventListener('click', () => {
+  const id = zukanPopId;
+  closeZukanPop();
+  if (!id) return;
+  sound.play('tap');
+  if (id === RANDOM_FRUIT_ID) {
+    if (!state.collection.isRandom()) selectFruit(RANDOM_FRUIT_ID);
+    else showToast('🎲 ランダムを つかっているよ');
+  } else if (id !== state.fruit.id || state.collection.isRandom()) selectFruit(id);
+  else showToast(`${state.fruit.emoji} ${state.fruit.name}を つかっているよ`);
   renderZukanScreen();
 });
+$('#btn-zukan-close').addEventListener('click', () => { sound.play('tap'); closeZukanPop(); });
+$('#zukan-pop').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeZukanPop(); });
 
 // ---- トロフィー ----
 function openTrophy() {

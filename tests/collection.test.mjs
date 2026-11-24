@@ -258,3 +258,7 @@ test('タイムアタックの「あそんだ」は保存され、古い記録�
   const s = createChallengeStore(old);
   assert.deepEqual([1, 2, 3, 4, 5].map((lv) => s.hasPlayed(lv)), [true, true, false, false, false]);
 });
+
+test('すべてのフルーツに、ずかんの説明文（desc）がある', () => {
+  for (const f of FRUITS) assert.ok(typeof f.desc === 'string' && f.desc.length > 10, f.id);
+});
