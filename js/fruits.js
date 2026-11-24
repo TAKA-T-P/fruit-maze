@@ -1,4 +1,4 @@
-// フルーツの定義（全 16 種類）。盤面全体に「選んだ 1 種類」を表示する。
+// フルーツの定義（全 18 種類）。盤面全体に「選んだ 1 種類」を表示する。
 // 種類・順番・解放条件は第4段階の確定仕様。既存の 9 種類の ID は第1段階から変えていない。
 //
 //   color … ルートの線・通ったマスの枠の色（クリーム色の盤面で見やすい濃さ）
@@ -7,7 +7,8 @@
 //     { type: 'default' }                     最初から使える
 //     { type: 'total', count }                ぜんぶの難易度で、ちがうステージを count こクリア
 //     { type: 'difficulty', level, count }    ★level のちがうステージを count こクリア
-//   order … 図鑑での表示順（1〜16）
+//     { type: 'timeattack', count }           タイムアタックを count このむずかしさで、最後まで あそんだ（途中でやめた挑戦は数えない）
+//   order … 図鑑での表示順（1〜18）
 
 export const FRUITS = [
   { id: 'strawberry', emoji: '🍓', name: 'イチゴ', color: '#e8384f', light: '#ffd9de', unlock: { type: 'default' } },
@@ -26,6 +27,8 @@ export const FRUITS = [
   { id: 'blueberry', emoji: '🫐', name: 'ブルーベリー', color: '#3f51b5', light: '#dfe3f8', unlock: { type: 'difficulty', level: 4, count: 15 } },
   { id: 'coconut', emoji: '🥥', name: 'ココナッツ', color: '#8d6e63', light: '#efe5df', unlock: { type: 'difficulty', level: 5, count: 10 } },
   { id: 'melon', emoji: '🍈', name: 'メロン', color: '#57a33a', light: '#e2f4d8', unlock: { type: 'difficulty', level: 5, count: 20 } },
+  { id: 'greenapple', emoji: '🍏', name: '青リンゴ', color: '#5c9e1f', light: '#e4f5d2', unlock: { type: 'timeattack', count: 2 } },
+  { id: 'avocado', emoji: '🥑', name: 'アボカド', color: '#4d7a24', light: '#e6efd6', unlock: { type: 'timeattack', count: 5 } },
 ].map((f, i) => ({ ...f, order: i + 1 }));
 
 export const DEFAULT_FRUIT_ID = 'strawberry';

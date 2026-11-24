@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  PUZZLE_IDS_V1, FRUIT_IDS_V1, CODE_PREFIX, MAX_INPUT_LENGTH, RESTORE_KEYS,
+  PUZZLE_IDS_V1, FRUIT_IDS_V1, FRUIT_IDS_ADDED, CODE_PREFIX, MAX_INPUT_LENGTH, RESTORE_KEYS,
   readRecord, encodeRecord, decodeCode, summarize, buildRestoreData, applyRestore, crc32, toBase64Url, fromBase64Url,
 } from '../js/transfer-code.js';
 import { createStore, STORAGE_KEY } from '../js/storage.js';
@@ -44,7 +44,7 @@ test('固定の問題 ID 表：250 問すべてが収録問題と一致し、画
   assert.deepEqual([...PUZZLE_IDS_V1].sort(), DATA.puzzles.map((p) => p.id).sort());
   assert.equal(PUZZLE_IDS_V1[0], 'easy-001');
   assert.equal(PUZZLE_IDS_V1[249], 'master-050');
-  assert.deepEqual([...FRUIT_IDS_V1], FRUITS.map((f) => f.id), 'フルーツ表');
+  assert.deepEqual([...FRUIT_IDS_V1, ...FRUIT_IDS_ADDED], FRUITS.map((f) => f.id), 'フルーツ表（番号は固定。あとから追加したものは 17 から）');
 });
 
 test('Base64URL と CRC32', () => {
@@ -132,8 +132,8 @@ test('チェックサムが合っていても、ありえない値は読みこ�
   assert.equal(decodeCode(forge(() => {})).ok, true, '書きかえなしなら読める');
   assert.equal(decodeCode(forge((x) => { x[31] |= 0x80; })).error, 'invalid', '存在しない問題（251 番目以降のビット）');
   assert.equal(decodeCode(forge((x) => { x[0] = 0; x[32] = 1; })).error, 'invalid', 'ヒントなしなのに未クリア');
-  assert.equal(decodeCode(forge((x) => { x[69] = 17; })).error, 'invalid', '不正なフルーツ');
-  assert.equal(decodeCode(forge((x) => { x[70] = 4; })).error, 'invalid', '不正な設定');
+  assert.equal(decodeCode(forge((x) => { x[69] = 99; })).error, 'invalid', '不正なフルーツ');
+  assert.equal(decodeCode(forge((x) => { x[70] = 0x80; })).error, 'invalid', '不正な設定（使っていないビット）');
   assert.equal(decodeCode(forge((x) => { x[69] = 16; })).record.fruit, 'random');
 });
 
@@ -189,7 +189,8 @@ test('確認画面の内容', () => {
   const s = summarize(decodeCode(encodeRecord(readRecord(b))).record);
   assert.equal(s.cleared, 250);
   assert.equal(s.total, 250);
-  assert.equal(s.fruitsUnlocked, 16);
+  assert.equal(s.fruitsUnlocked, 18, 'タイムアタックを 5 つのむずかしさであそんでいるので 18 種類');
+  assert.equal(s.fruitsTotal, 18);
   assert.equal(s.trophies, 5);
   assert.deepEqual(s.taBest, [8, 5, 3, 2, 1]);
 });
@@ -233,4 +234,32 @@ test('記録を消す：クリア・コレクション・タイムアタック�
   assert.equal(createStore(b).clearedIds().length, 0);
   assert.deepEqual(createChallengeStore(b).bestByLevel(), { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
   assert.equal(eraseRecords(null).ok, false);
+});
+
+test('引継ぎ：タイムアタックを「あそんだ」むずかしさ（0 問でも）と、追加のフルーツを引き継ぐ', () => {
+  const b = mem();
+  const ta = createChallengeStore(b);
+  ta.recordResult(2, 0); ta.recordResult(4, 0); // 0 問でも最後まであそんだ
+  createCollectionStore(b).select('greenapple', ['strawberry', 'greenapple']);
+  const rec = readRecord(b);
+  assert.deepEqual([...rec.taPlayed].sort(), [2, 4]);
+  assert.equal(rec.fruit, 'greenapple');
+  const code = encodeRecord(rec);
+  assert.equal(code.length, 104);
+  const d = decodeCode(code).record;
+  assert.deepEqual([...d.taPlayed].sort(), [2, 4]);
+  assert.equal(d.fruit, 'greenapple');
+  assert.equal(summarize(d).fruitsUnlocked, 2, 'イチゴと青リンゴ');
+  const target = mem();
+  assert.equal(applyRestore(target, buildRestoreData(d)).ok, true);
+  const s = createChallengeStore(target);
+  assert.equal(s.playedCount(), 2);
+  assert.equal(createCollectionStore(target).selectedFruit(['strawberry', 'greenapple']).id, 'greenapple');
+  assert.equal(pendingRewards(clearStats([], () => 1, { taPlayed: 2 }), createCollectionStore(target), () => 50).isEmpty, true, '古い演出は出ない');
+});
+
+test('引継ぎ：アボカドは番号 18。19 以上は読みこまない', () => {
+  assert.equal(decodeCode(forge((x) => { x[69] = 18; })).record.fruit, 'avocado');
+  assert.equal(decodeCode(forge((x) => { x[69] = 19; })).error, 'invalid');
+  assert.equal(decodeCode(forge((x) => { x[70] = 0x80; })).error, 'invalid', '使っていないビット');
 });

@@ -9,8 +9,8 @@
 //   0〜31    通常ステージのクリア（250 ビット。下の固定の問題 ID 表の順。1 = クリア済み）
 //   32〜63   ヒントなしクリア（250 ビット。1 のステージは必ずクリア済み）
 //   64〜68   タイムアタック ★〜★★★★★ の最高クリア数（各 0〜255）
-//   69       選んでいるフルーツ（0〜15 = 下のフルーツ表、16 = ランダム）
-//   70       設定（bit0 = 効果音 ON、bit1 = 数字の表示が「分数表示」。ほかのビットは 0）
+//   69       選んでいるフルーツ（0〜15 = 下のフルーツ表、16 = ランダム、17〜 = あとから追加したフルーツ）
+//   70       設定など（bit0 = 効果音 ON、bit1 = 数字の表示が「分数表示」、bit2〜6 = タイムアタック ★〜★★★★★ を最後まであそんだ。bit7 は 0）
 //   71〜74   チェックサム（"FM1" と バイト 0〜70 の CRC32。入力ミス・破損の検出用で、改ざん防止ではない）
 //   ビットの並びは、i 番目 → バイト i>>3 の (i & 7) ビット目（下位ビットから）
 //
@@ -26,7 +26,7 @@ import { COLLECTION_KEY, createCollectionStore, clearStats, unlockedFruitIds, RA
 import { TIME_ATTACK_KEY, createChallengeStore } from './challenge-storage.js';
 import { SETTINGS_KEY, createSettings } from './settings.js';
 import { allTrophyStatuses, isAllComplete } from './trophies.js';
-import { getFruit, DEFAULT_FRUIT_ID } from './fruits.js';
+import { FRUITS, getFruit, DEFAULT_FRUIT_ID } from './fruits.js';
 
 export const CODE_APP = 'FM';
 export const CODE_VERSION = 1;
@@ -37,10 +37,19 @@ export const MAX_INPUT_LENGTH = 2000;
 const PREFIXES_V1 = ['easy', 'normal', 'hard', 'expert', 'master'];
 /** 問題 ID の固定表（バージョン 1）。ビット位置 = この配列の番号 */
 export const PUZZLE_IDS_V1 = Object.freeze(PREFIXES_V1.flatMap((p) => Array.from({ length: 50 }, (_, i) => `${p}-${String(i + 1).padStart(3, '0')}`)));
-/** フルーツの固定表（バージョン 1）。番号 16 は「ランダム」 */
+/** フルーツの固定表（バージョン 1）。番号 16 は「ランダム」。あとから追加したフルーツは 17 から（番号は変えない） */
 export const FRUIT_IDS_V1 = Object.freeze(['strawberry', 'apple', 'orange', 'banana', 'grape', 'watermelon', 'cherry', 'peach',
   'lemon', 'pear', 'pineapple', 'kiwi', 'mango', 'blueberry', 'coconut', 'melon']);
 const RANDOM_INDEX = 16;
+export const FRUIT_IDS_ADDED = Object.freeze(['greenapple', 'avocado']); // 17, 18
+const fruitToIndex = (id) => {
+  if (id === RANDOM_FRUIT_ID) return RANDOM_INDEX;
+  const a = FRUIT_IDS_V1.indexOf(id);
+  if (a >= 0) return a;
+  const b = FRUIT_IDS_ADDED.indexOf(id);
+  return b >= 0 ? RANDOM_INDEX + 1 + b : -1;
+};
+const indexToFruit = (i) => (i < RANDOM_INDEX ? FRUIT_IDS_V1[i] : i === RANDOM_INDEX ? RANDOM_FRUIT_ID : FRUIT_IDS_ADDED[i - RANDOM_INDEX - 1] || null);
 
 const N = PUZZLE_IDS_V1.length;          // 250
 const BITS_BYTES = Math.ceil(N / 8);     // 32
@@ -48,7 +57,8 @@ const OFS = { cleared: 0, hintFree: BITS_BYTES, ta: BITS_BYTES * 2, fruit: BITS_
 const BODY_LENGTH = OFS.crc;             // 71
 const TOTAL_LENGTH = OFS.crc + 4;        // 75
 const SETTING_BITS = { sound: 1, fraction: 2 };
-const SETTING_MASK = SETTING_BITS.sound | SETTING_BITS.fraction;
+const PLAYED_SHIFT = 2; // bit2〜6：タイムアタックを最後まであそんだ むずかしさ
+const SETTING_MASK = SETTING_BITS.sound | SETTING_BITS.fraction | (0b11111 << PLAYED_SHIFT);
 
 const levelOfId = (id) => PREFIXES_V1.indexOf(id.split('-')[0]) + 1;
 const totalOf = (level) => PUZZLE_IDS_V1.filter((id) => levelOfId(id) === level).length;
@@ -56,21 +66,24 @@ const totalOf = (level) => PUZZLE_IDS_V1.filter((id) => levelOfId(id) === level)
 // ---------------------------------------------------------------- 記録の読み取り
 /**
  * 今の保存データ（localStorage 互換の backend）から、引き継ぐ記録を取り出す。
- * @returns {{cleared: Set<string>, hintFree: Set<string>, taBest: number[], fruit: string, sound: boolean, clueStyle: 'target'|'fraction'}}
+ * @returns {{cleared: Set<string>, hintFree: Set<string>, taBest: number[], taPlayed: Set<number>, fruit: string, sound: boolean, clueStyle: 'target'|'fraction'}}
  */
 export function readRecord(backend) {
   const store = createStore(backend);
   const ids = new Set(PUZZLE_IDS_V1);
   const cleared = new Set(store.clearedIds().filter((id) => ids.has(id)));
   const hintFree = new Set([...cleared].filter((id) => store.isHintFreeCleared(id)));
-  const ta = createChallengeStore(backend).bestByLevel();
+  const taStore = createChallengeStore(backend);
+  const ta = taStore.bestByLevel();
+  const taPlayed = new Set([1, 2, 3, 4, 5].filter((lv) => taStore.hasPlayed(lv)));
   const col = createCollectionStore(backend);
-  const unlocked = unlockedFruitIds(clearStats([...cleared], levelOfId));
+  const unlocked = unlockedFruitIds(clearStats([...cleared], levelOfId, { taPlayed: taPlayed.size }));
   const fruit = col.isRandom() ? RANDOM_FRUIT_ID : col.selectedFruit(unlocked).id;
   const settings = createSettings(backend);
   return {
     cleared, hintFree,
     taBest: [1, 2, 3, 4, 5].map((lv) => ta[lv] || 0),
+    taPlayed,
     fruit, sound: settings.get('sound') !== false, clueStyle: settings.get('clueStyle') === 'fraction' ? 'fraction' : 'target',
   };
 }
@@ -85,9 +98,11 @@ export function encodeRecord(rec) {
     if (hf) setBit(bytes, OFS.hintFree, i);
   });
   rec.taBest.forEach((n, i) => { bytes[OFS.ta + i] = Math.max(0, Math.min(255, Math.floor(n) || 0)); });
-  const fi = rec.fruit === RANDOM_FRUIT_ID ? RANDOM_INDEX : FRUIT_IDS_V1.indexOf(rec.fruit);
+  const fi = fruitToIndex(rec.fruit);
   bytes[OFS.fruit] = fi >= 0 ? fi : 0;
-  bytes[OFS.settings] = (rec.sound ? SETTING_BITS.sound : 0) | (rec.clueStyle === 'fraction' ? SETTING_BITS.fraction : 0);
+  const played = playedLevelsOf(rec);
+  bytes[OFS.settings] = (rec.sound ? SETTING_BITS.sound : 0) | (rec.clueStyle === 'fraction' ? SETTING_BITS.fraction : 0)
+    | [1, 2, 3, 4, 5].reduce((m, lv) => (played.has(lv) ? m | (1 << (PLAYED_SHIFT + lv - 1)) : m), 0);
   writeU32(bytes, OFS.crc, checksum(bytes.subarray(0, BODY_LENGTH)));
   return CODE_PREFIX + toBase64Url(bytes);
 }
@@ -123,16 +138,19 @@ export function decodeCode(input) {
     if (c) cleared.add(PUZZLE_IDS_V1[i]);
     if (h) hintFree.add(PUZZLE_IDS_V1[i]);
   }
-  const fi = bytes[OFS.fruit];
-  if (fi > RANDOM_INDEX) return { ok: false, error: 'invalid' };
+  const fruit = indexToFruit(bytes[OFS.fruit]);
+  if (!fruit) return { ok: false, error: 'invalid' };
   const st = bytes[OFS.settings];
   if (st & ~SETTING_MASK) return { ok: false, error: 'invalid' };
+  const taBest = Array.from(bytes.subarray(OFS.ta, OFS.ta + 5));
+  const taPlayed = new Set([1, 2, 3, 4, 5].filter((lv) => (st >> (PLAYED_SHIFT + lv - 1)) & 1 || taBest[lv - 1] > 0));
   return {
     ok: true,
     record: {
       cleared, hintFree,
-      taBest: Array.from(bytes.subarray(OFS.ta, OFS.ta + 5)),
-      fruit: fi === RANDOM_INDEX ? RANDOM_FRUIT_ID : FRUIT_IDS_V1[fi],
+      taBest,
+      taPlayed,
+      fruit,
       sound: !!(st & SETTING_BITS.sound),
       clueStyle: st & SETTING_BITS.fraction ? 'fraction' : 'target',
     },
@@ -141,7 +159,7 @@ export function decodeCode(input) {
 
 /** 確認画面に出す内容 */
 export function summarize(rec) {
-  const stats = clearStats([...rec.cleared], levelOfId);
+  const stats = clearStats([...rec.cleared], levelOfId, { taPlayed: playedLevelsOf(rec).size });
   const unlocked = unlockedFruitIds(stats);
   const fruitUsable = rec.fruit === RANDOM_FRUIT_ID || unlocked.includes(rec.fruit);
   return {
@@ -151,6 +169,7 @@ export function summarize(rec) {
     taBest: [...rec.taBest],
     fruit: rec.fruit === RANDOM_FRUIT_ID ? { id: RANDOM_FRUIT_ID, emoji: '🎲', name: 'ランダム' } : getFruit(fruitUsable ? rec.fruit : DEFAULT_FRUIT_ID),
     fruitsUnlocked: unlocked.length,
+    fruitsTotal: FRUITS.length,
     trophies: allTrophyStatuses(stats, totalOf).filter((s) => s.earned).length,
   };
 }
@@ -167,13 +186,14 @@ export function buildRestoreData(rec) {
     if (!rec.cleared.has(id)) continue;
     cleared[id] = { firstClearedAt: null, clearCount: null, hintFree: rec.hintFree.has(id) }; // ヒントなしかどうかは明示する
   }
-  const stats = clearStats([...rec.cleared], levelOfId);
+  const played = playedLevelsOf(rec);
+  const stats = clearStats([...rec.cleared], levelOfId, { taPlayed: played.size });
   const unlocked = unlockedFruitIds(stats);
   const trophies = allTrophyStatuses(stats, totalOf).filter((s) => s.earned).map((s) => s.trophy.level);
   const selected = rec.fruit === RANDOM_FRUIT_ID || unlocked.includes(rec.fruit) ? rec.fruit : DEFAULT_FRUIT_ID; // 未解放ならイチゴ
   const levels = {};
   rec.taBest.forEach((best, i) => {
-    levels[String(i + 1)] = { bestClears: best, playCount: null, lastClears: null, bestAt: null, masterAchievedAt: null, lastPlayedAt: null };
+    levels[String(i + 1)] = { bestClears: best, playCount: null, lastClears: null, bestAt: null, masterAchievedAt: null, lastPlayedAt: null, played: played.has(i + 1) };
   });
   return {
     [STORAGE_KEY]: JSON.stringify({ version: 1, cleared, lastDifficulty: null }),
@@ -233,6 +253,13 @@ export function eraseRecords(backend) {
   } catch {
     return { ok: false };
   }
+}
+
+/** タイムアタックを最後まであそんだ むずかしさ（最高記録が 1 以上なら、あそんだことにする） */
+function playedLevelsOf(rec) {
+  const s = new Set(rec.taPlayed || []);
+  (rec.taBest || []).forEach((n, i) => { if (n > 0) s.add(i + 1); });
+  return s;
 }
 
 // ---------------------------------------------------------------- 小さな道具

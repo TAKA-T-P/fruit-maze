@@ -133,7 +133,7 @@ export class TransferDialog {
       <dl class="tr-summary">
         <div class="tr-row"><dt>通常ステージ</dt><dd><b>${s.cleared}</b> / ${s.total}問 クリア</dd></div>
         <div class="tr-row"><dt>ヒントなしクリア</dt><dd><b>${s.hintFree}</b>問</dd></div>
-        <div class="tr-row"><dt>フルーツ</dt><dd><b>${s.fruitsUnlocked}</b> / 16しゅるい</dd></div>
+        <div class="tr-row"><dt>フルーツ</dt><dd><b>${s.fruitsUnlocked}</b> / ${s.fruitsTotal}しゅるい</dd></div>
         <div class="tr-row"><dt>トロフィー</dt><dd><b>${s.trophies}</b> / 5</dd></div>
         <div class="tr-row"><dt>使っているフルーツ</dt><dd><span class="tr-fruit">${s.fruit.emoji}</span> ${esc(s.fruit.name)}</dd></div>
         <div><dt>タイムアタック（最高記録）</dt><dd class="tr-ta">${ta}</dd></div>

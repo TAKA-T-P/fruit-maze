@@ -35,9 +35,10 @@ export function pickRandomFruit(unlocked, excludeId = null, random = Math.random
  * クリア記録から、ちがうステージのクリア数を数える。
  * @param {string[]} clearedIds   クリア済みの問題 ID（storage.clearedIds()）
  * @param {(id: string) => number|null|undefined} levelOf  問題 ID → 難易度（収録されていない ID は数えない）
- * @returns {{ total: number, byLevel: Record<number, number> }}
+ * @param {{taPlayed?: number}} [opt]  taPlayed … タイムアタックを最後まであそんだ むずかしさの数（challenge-storage の playedCount()）
+ * @returns {{ total: number, byLevel: Record<number, number>, taPlayed: number }}
  */
-export function clearStats(clearedIds, levelOf) {
+export function clearStats(clearedIds, levelOf, { taPlayed = 0 } = {}) {
   const byLevel = Object.fromEntries(LEVELS.map((l) => [l, 0]));
   let total = 0;
   for (const id of new Set(clearedIds)) {
@@ -46,7 +47,7 @@ export function clearStats(clearedIds, levelOf) {
     byLevel[level]++;
     total++;
   }
-  return { total, byLevel };
+  return { total, byLevel, taPlayed: Math.max(0, Math.min(LEVELS.length, taPlayed | 0)) };
 }
 
 const STARS = (level) => '★'.repeat(level);
@@ -60,17 +61,23 @@ const STARS = (level) => '★'.repeat(level);
 export function fruitStatus(fruit, stats) {
   const u = fruit.unlock || { type: 'default' };
   if (u.type === 'default') return { fruit, unlocked: true, current: 0, need: 0, remaining: 0, condition: 'さいしょから つかえる', hint: '' };
-  const have = u.type === 'total' ? stats.total : (stats.byLevel[u.level] || 0);
+  const have = u.type === 'total' ? stats.total
+    : u.type === 'timeattack' ? (stats.taPlayed || 0)
+    : (stats.byLevel[u.level] || 0);
   const need = u.count;
   const current = Math.min(have, need);
   const remaining = Math.max(0, need - have);
-  const condition = u.type === 'total' ? `ステージを ぜんぶで${need}こクリア` : `${STARS(u.level)}を${need}ステージクリア`;
+  const condition = u.type === 'total' ? `ステージを ぜんぶで${need}こクリア`
+    : u.type === 'timeattack' ? `タイムアタックを ${need}つのむずかしさで あそぶ`
+    : `${STARS(u.level)}を${need}ステージクリア`;
   const hint = remaining === 0 ? ''
-    : u.type === 'total' ? `あと${remaining}ステージで解放！` : `${STARS(u.level)}をあと${remaining}ステージクリア！`;
+    : u.type === 'total' ? `あと${remaining}ステージで解放！`
+    : u.type === 'timeattack' ? `タイムアタックを あと${remaining}つのむずかしさで あそぼう！`
+    : `${STARS(u.level)}をあと${remaining}ステージクリア！`;
   return { fruit, unlocked: remaining === 0, current, need, remaining, condition, hint };
 }
 
-/** 全 16 種類の解放状況（図鑑の順） */
+/** 全種類の解放状況（図鑑の順） */
 export function allFruitStatuses(stats) {
   return [...FRUITS].sort((a, b) => a.order - b.order).map((f) => fruitStatus(f, stats));
 }

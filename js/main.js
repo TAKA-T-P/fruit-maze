@@ -863,10 +863,17 @@ function showTaResults() {
   exitTa();
   show('ta-result');
   const focusRetry = () => $('#btn-ta-retry').focus({ preventScroll: true });
+  // タイムアタックで解放されたフルーツ（青リンゴ・アボカド）：結果を見せてから、報酬の演出
+  const rewards = pendingRewards(currentStats(), state.collection, totalOf);
+  const afterRewards = (next) => {
+    if (rewards.isEmpty) { next(); return; }
+    state.taTimer = setTimeout(() => showRewards(rewards, next), 1300);
+  };
   // 5 難易度すべてで最高称号：結果画面の上にエンディング（音楽と重ならないよう、ファンファーレは鳴らさない）
-  if (result.newlyComplete) { playTaEnding(focusRetry); return; }
+  if (result.newlyComplete) { afterRewards(() => playTaEnding(focusRetry)); return; }
   sound.play(result.newRecord || result.titleUp ? 'fanfareBig' : 'fanfare'); // 結果はいつもファンファーレ。記録更新・称号アップはさらにキラキラ
   focusRetry();
+  afterRewards(() => {});
 }
 
 /** タイムアタックの表示・時計を片付けて、通常モードに戻す */
@@ -907,7 +914,7 @@ $('#ta-quit').addEventListener('click', (e) => { if (e.target === e.currentTarge
 // ---------------- フルーツコレクション・トロフィー ----------------
 const totalOf = (level) => state.library.count(level);
 /** クリア記録から数えた、ちがうステージのクリア数（累計・難易度別） */
-const currentStats = () => clearStats(state.store.clearedIds(), (id) => state.library.get(id)?.difficulty);
+const currentStats = () => clearStats(state.store.clearedIds(), (id) => state.library.get(id)?.difficulty, { taPlayed: state.taStore.playedCount() });
 const unlockedNow = () => unlockedFruitIds(currentStats());
 
 /** 選んでいるフルーツを復元して、タイトル画面などに反映する */

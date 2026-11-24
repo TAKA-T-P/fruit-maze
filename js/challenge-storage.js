@@ -18,7 +18,7 @@ import { titleFor, isMaster, allMaster } from './challenge-titles.js';
 
 export const TIME_ATTACK_KEY = 'fruitMaze.timeAttack.v1';
 
-const emptyLevel = () => ({ bestClears: 0, playCount: 0, lastClears: null, bestAt: null, masterAchievedAt: null, lastPlayedAt: null });
+const emptyLevel = () => ({ bestClears: 0, playCount: 0, lastClears: null, bestAt: null, masterAchievedAt: null, lastPlayedAt: null, played: false });
 const emptyData = () => ({ version: 1, levels: Object.fromEntries(TA_LEVELS.map((c) => [String(c.level), emptyLevel()])), completeAt: null });
 const nonNegInt = (v) => Number.isInteger(v) && v >= 0;
 const isoOrNull = (v) => (typeof v === 'string' && !Number.isNaN(Date.parse(v)) ? v : null);
@@ -44,6 +44,7 @@ export function createChallengeStore(backend = safeLocalStorage()) {
           L.bestAt = isoOrNull(s.bestAt);
           L.masterAchievedAt = isoOrNull(s.masterAchievedAt);
           L.lastPlayedAt = isoOrNull(s.lastPlayedAt);
+          L.played = s.played === true;
         }
         out.completeAt = isoOrNull(saved.completeAt);
       }
@@ -58,6 +59,13 @@ export function createChallengeStore(backend = safeLocalStorage()) {
     /** 難易度ごとの記録（コピー） */
     get(level) { return { ...data.levels[String(level)] }; },
     bestByLevel() { return Object.fromEntries(TA_LEVELS.map((c) => [c.level, data.levels[String(c.level)].bestClears])); },
+    /** その難易度を最後まであそんだことがある（途中でやめた挑戦は数えない。引継ぎで回数が不明でも played で分かる） */
+    hasPlayed(level) {
+      const L = data.levels[String(level)];
+      return !!L && (L.played === true || (L.playCount ?? 0) > 0 || L.bestClears > 0 || L.lastClears !== null);
+    },
+    /** 最後まであそんだ むずかしさの数（フルーツ「青リンゴ」「アボカド」の解放条件） */
+    playedCount() { return TA_LEVELS.filter((c) => this.hasPlayed(c.level)).length; },
     /** 5 難易度すべてで最高称号（最高記録から判定。日時が不明な引継ぎ記録でも正しく出る） */
     isComplete() { return !!data.completeAt || allMaster(this.bestByLevel()); },
     completeAt() { return data.completeAt; },
@@ -74,6 +82,7 @@ export function createChallengeStore(backend = safeLocalStorage()) {
       const prevTitle = titleFor(level, prevBest);
       const prevAllMaster = allMaster(this.bestByLevel());
       L.playCount = (L.playCount ?? 0) + 1; // 不明（null）のときは、この端末で遊んだ回数から数える
+      L.played = true;
       L.lastClears = clears;
       L.lastPlayedAt = iso;
       const newRecord = clears > prevBest;

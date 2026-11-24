@@ -15,7 +15,7 @@ const stats = (clearedIds) => clearStats(clearedIds, levelOf);
 const unlocked = (clearedIds) => unlockedFruitIds(stats(clearedIds));
 function mem() { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), _m: m }; }
 
-test('フルーツは 16 種類、仕様どおりの順番・解放条件', () => {
+test('フルーツは 18 種類、仕様どおりの順番・解放条件', () => {
   const spec = [
     ['strawberry', '🍓', 'イチゴ', { type: 'default' }],
     ['apple', '🍎', 'リンゴ', { type: 'total', count: 3 }],
@@ -33,20 +33,22 @@ test('フルーツは 16 種類、仕様どおりの順番・解放条件', () =
     ['blueberry', '🫐', 'ブルーベリー', { type: 'difficulty', level: 4, count: 15 }],
     ['coconut', '🥥', 'ココナッツ', { type: 'difficulty', level: 5, count: 10 }],
     ['melon', '🍈', 'メロン', { type: 'difficulty', level: 5, count: 20 }],
+    ['greenapple', '🍏', '青リンゴ', { type: 'timeattack', count: 2 }],
+    ['avocado', '🥑', 'アボカド', { type: 'timeattack', count: 5 }],
   ];
-  assert.equal(FRUITS.length, 16);
+  assert.equal(FRUITS.length, 18);
   FRUITS.forEach((f, i) => {
     assert.deepEqual([f.id, f.emoji, f.name, f.unlock], spec[i], f.id);
     assert.equal(f.order, i + 1);
     assert.match(f.color, /^#[0-9a-f]{6}$/i);
     assert.match(f.light, /^#[0-9a-f]{6}$/i);
   });
-  assert.equal(new Set(FRUITS.map((f) => f.id)).size, 16, 'ID が重複しない');
+  assert.equal(new Set(FRUITS.map((f) => f.id)).size, 18, 'ID が重複しない');
   // 第1段階からある 9 種類の ID は変えていない
   for (const id of ['strawberry', 'apple', 'orange', 'banana', 'grape', 'watermelon', 'pineapple', 'peach', 'kiwi']) assert.ok(FRUITS.some((f) => f.id === id), id);
 });
 
-test('フルーツのコンプリートに全 250 ステージは要らない', () => {
+test('ステージのクリアで解放される 16 種類に、全 250 ステージは要らない', () => {
   // 必要なのは：★2 を 15、★3 を 15、★4 を 15、★5 を 20、合計 50 以上
   const set = [...ids(2, 15), ...ids(3, 15), ...ids(4, 15), ...ids(5, 20)];
   assert.equal(set.length, 65);
@@ -90,7 +92,7 @@ test('同じステージを何度クリアしても 1 回。収録されてい�
   for (let i = 0; i < 10; i++) store.recordClear('easy-001');
   store.recordClear('easy-002');
   const s = stats([...store.clearedIds(), 'tutorial-route', 'unknown-999']);
-  assert.deepEqual(s, { total: 2, byLevel: { 1: 2, 2: 0, 3: 0, 4: 0, 5: 0 } });
+  assert.deepEqual(s, { total: 2, byLevel: { 1: 2, 2: 0, 3: 0, 4: 0, 5: 0 }, taPlayed: 0 });
   assert.ok(!new Set(unlockedFruitIds(s)).has('apple'));
   // 重複した ID の配列でも 1 回
   assert.equal(stats(['easy-001', 'easy-001', 'easy-001']).total, 1);
@@ -210,4 +212,49 @@ test('ランダム：ゲットしたフルーツだけから選び、2 種類以
   assert.equal(pickRandomFruit(['strawberry'], 'strawberry').id, 'strawberry', '1 種類だけならそれ');
   assert.equal(pickRandomFruit([], null).id, 'strawberry');
   assert.equal(pickRandomFruit(open, null, () => 0.999).id, 'banana');
+});
+
+// ---- タイムアタックで解放されるフルーツ（青リンゴ・アボカド） ----
+import { createChallengeStore } from '../js/challenge-storage.js';
+import { TimeAttack } from '../js/challenge.js';
+
+test('青リンゴ：タイムアタックを 2 つのむずかしさ、アボカド：5 つのむずかしさで最後まであそぶと解放', () => {
+  const st = (n) => clearStats([], () => 1, { taPlayed: n });
+  const green = getFruit('greenapple'), avocado = getFruit('avocado');
+  assert.equal(fruitStatus(green, st(1)).unlocked, false);
+  assert.equal(fruitStatus(green, st(1)).hint, 'タイムアタックを あと1つのむずかしさで あそぼう！');
+  assert.equal(fruitStatus(green, st(2)).unlocked, true);
+  assert.equal(fruitStatus(avocado, st(4)).unlocked, false);
+  assert.deepEqual([fruitStatus(avocado, st(4)).current, fruitStatus(avocado, st(4)).need], [4, 5]);
+  assert.equal(fruitStatus(avocado, st(5)).unlocked, true);
+  assert.equal(fruitStatus(avocado, st(5)).condition, 'タイムアタックを 5つのむずかしさで あそぶ');
+  assert.equal(stats([]).taPlayed, 0, '指定しなければ 0');
+  assert.equal(unlocked(ids(2, 50)).includes('greenapple'), false, 'ステージのクリアだけでは解放されない');
+});
+
+test('タイムアタックの「あそんだ」：最後まであそんだ挑戦だけ。0 問でも数える、同じむずかしさは 1 つ、途中でやめたら数えない', () => {
+  const s = createChallengeStore(mem());
+  assert.equal(s.playedCount(), 0);
+  s.recordResult(1, 0); // 0 問でも、最後まであそんだら記録が残る
+  assert.equal(s.playedCount(), 1);
+  s.recordResult(1, 3);
+  assert.equal(s.playedCount(), 1, '同じむずかしさは 1 つ');
+  // 途中でやめた挑戦は recordResult されない（main.js の「やめる」は abort するだけ）
+  const ta = new TimeAttack({ level: 2, puzzles: lib.list(2), now: () => 0 });
+  ta.startCountdown(); ta.begin(); ta.abort();
+  assert.equal(ta.endReason, 'aborted');
+  assert.equal(s.playedCount(), 1);
+  s.recordResult(3, 1);
+  assert.equal(s.playedCount(), 2);
+  assert.equal(unlockedFruitIds(clearStats([], () => 1, { taPlayed: s.playedCount() })).includes('greenapple'), true);
+});
+
+test('タイムアタックの「あそんだ」は保存され、古い記録（played がない）も回数・記録から判定する', () => {
+  const b = mem();
+  createChallengeStore(b).recordResult(4, 0);
+  assert.equal(createChallengeStore(b).hasPlayed(4), true);
+  const old = mem();
+  old.setItem('fruitMaze.timeAttack.v1', JSON.stringify({ version: 1, levels: { 1: { bestClears: 0, playCount: 2 }, 2: { bestClears: 3, playCount: null }, 3: { bestClears: 0, playCount: 0 } } }));
+  const s = createChallengeStore(old);
+  assert.deepEqual([1, 2, 3, 4, 5].map((lv) => s.hasPlayed(lv)), [true, true, false, false, false]);
 });
