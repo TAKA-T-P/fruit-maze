@@ -1235,3 +1235,91 @@ button { font-family: inherit; touch-action: manipulation; }
 /* 記録を消す */
 .setting-transfer .erase-btn { color: var(--goal); border-color: #f1b8b8; margin-top: 4px; }
 .erase-yes { background: var(--goal); box-shadow: 0 4px 0 #a51d1d; }
+
+/* ===================== エンディング（全トロフィー／タイムアタック全最高称号） ===================== */
+/* 👑：トロフィー画面・タイムアタックきろくの右上（達成後に出る） */
+.ending-crown {
+  border-color: #f5c542; background: linear-gradient(180deg, #fff8d6, #ffe58a);
+  box-shadow: 0 3px 0 #d9a514; animation: bob 1.8s ease-in-out infinite;
+}
+.bar-right .ending-crown { margin-left: auto; }
+
+.ending-overlay {
+  position: fixed; inset: 0; z-index: 45; overflow: hidden;
+  display: grid; grid-template-rows: 1fr auto auto; place-items: center;
+  padding: calc(env(safe-area-inset-top) + 56px) 16px calc(env(safe-area-inset-bottom) + 20px);
+  background: radial-gradient(ellipse at 50% 110%, #5b3a8c 0%, #2a1f55 45%, #120d2b 100%);
+  color: #fff; text-align: center; font-family: var(--font), var(--emoji);
+  animation: ed-in .6s ease-out;
+}
+.ending-overlay.ed-ta { background: radial-gradient(ellipse at 50% 110%, #1f6f8b 0%, #17325a 45%, #0b1430 100%); }
+.ending-overlay[hidden] { display: none; }
+@keyframes ed-in { from { opacity: 0; } }
+
+/* 背景：またたく星と、のぼっていくフルーツ */
+.ed-sky { position: absolute; inset: 0; pointer-events: none; }
+.ed-star {
+  position: absolute; width: 3px; height: 3px; border-radius: 50%; background: #fff;
+  opacity: .2; animation: ed-twinkle 2.4s ease-in-out var(--d) infinite;
+}
+@keyframes ed-twinkle { 50% { opacity: .95; transform: scale(1.6); } }
+.ed-fruit {
+  position: absolute; bottom: -60px; font-size: 1.8rem; font-family: var(--emoji); opacity: 0;
+  animation: ed-rise var(--t) linear var(--d) infinite;
+}
+@keyframes ed-rise {
+  0% { transform: translateY(0) rotate(0); opacity: 0; }
+  10% { opacity: .55; }
+  85% { opacity: .55; }
+  100% { transform: translateY(-115vh) rotate(200deg); opacity: 0; }
+}
+
+.ed-skip {
+  position: absolute; top: calc(env(safe-area-inset-top) + 12px); right: 16px; z-index: 2;
+  min-height: 40px; padding: 6px 14px; border-radius: 99px; cursor: pointer;
+  border: 2px solid rgba(255, 255, 255, .35); background: rgba(255, 255, 255, .1); color: #fff;
+  font: 700 .85rem var(--font);
+}
+
+/* 中央：1 つずつ切り替わる場面 */
+.ed-stage { position: relative; width: min(420px, 100%); height: min(360px, 60vh); z-index: 1; }
+.ed-scene {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  opacity: 0; transform: translateY(24px) scale(.96); transition: opacity .6s ease, transform .6s ease; pointer-events: none;
+}
+.ed-scene.on { opacity: 1; transform: none; }
+.ed-scene.past { transform: translateY(-24px) scale(.96); }
+.ed-kicker { margin: 0; color: #ffd84d; font-weight: 800; font-size: 1.05rem; letter-spacing: .08em; }
+.ed-crown, .ed-icon { font-size: 5.2rem; line-height: 1.1; font-family: var(--emoji); filter: drop-shadow(0 0 18px rgba(255, 216, 77, .55)); }
+.ed-scene.on .ed-crown, .ed-scene.on .ed-icon { animation: ed-pop .7s cubic-bezier(.3, 1.6, .5, 1) both; }
+@keyframes ed-pop { from { transform: scale(.3) rotate(-12deg); opacity: 0; } }
+.ed-title { margin: 4px 0 0; font-size: clamp(1.6rem, 7vw, 2.2rem); line-height: 1.25; text-shadow: 0 3px 0 rgba(0, 0, 0, .35); }
+.ed-sub { margin: 4px 0 0; font-weight: 700; opacity: .9; }
+.ed-item-title { margin: 2px 0 6px; font-size: clamp(1.4rem, 6vw, 1.8rem); text-shadow: 0 3px 0 rgba(0, 0, 0, .35); }
+.ed-line { margin: 0; font-weight: 700; font-size: 1.05rem; opacity: .95; }
+.ed-line b { color: #ffd84d; font-size: 1.35em; }
+.ed-thanks { margin: 0 0 18px; font-size: clamp(1.3rem, 6vw, 1.7rem); font-weight: 800; color: #ffd84d; }
+.ed-credit { margin: 0; font-size: clamp(1rem, 4.6vw, 1.25rem); font-weight: 800; letter-spacing: .06em; white-space: nowrap; }
+.ed-scene.on .ed-credit { animation: ed-fade 1.6s ease .5s both; }
+@keyframes ed-fade { from { opacity: 0; letter-spacing: .4em; } }
+
+/* 下：5 つの記録が順に光る */
+.ed-row { display: flex; gap: 10px; justify-content: center; z-index: 1; margin-top: 8px; }
+.ed-dot {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; width: 56px;
+  opacity: .25; filter: grayscale(1); transition: opacity .5s, filter .5s, transform .5s;
+}
+.ed-dot-icon { font-size: 1.7rem; font-family: var(--emoji); }
+.ed-dot small { font-size: .5rem; color: #ffd84d; white-space: nowrap; }
+.ed-dot.lit { opacity: 1; filter: none; transform: translateY(-3px); }
+.ending-overlay.ed-final .ed-dot { animation: bob 1.6s ease-in-out infinite; }
+.ending-overlay.ed-final .ed-dot:nth-child(2) { animation-delay: .15s; }
+.ending-overlay.ed-final .ed-dot:nth-child(3) { animation-delay: .3s; }
+.ending-overlay.ed-final .ed-dot:nth-child(4) { animation-delay: .45s; }
+.ending-overlay.ed-final .ed-dot:nth-child(5) { animation-delay: .6s; }
+.ed-tap { margin: 12px 0 0; font-size: .85rem; opacity: .75; z-index: 1; animation: ed-blink 1.4s ease-in-out infinite; }
+@keyframes ed-blink { 50% { opacity: .3; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ed-fruit { display: none; }
+}

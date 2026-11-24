@@ -9,7 +9,7 @@ import { Stopwatch, formatTime } from './timer.js';
 import { HowTo } from './howto.js';
 import { FRUITS } from './fruits.js';
 import { clearStats, allFruitStatuses, unlockedFruitIds, createCollectionStore, pickRandomFruit, RANDOM_FRUIT_ID } from './collection.js';
-import { allTrophyStatuses, getTrophy } from './trophies.js';
+import { allTrophyStatuses, getTrophy, isAllComplete } from './trophies.js';
 import { pendingRewards, markRewardsSeen, migrateFirstRun } from './rewards.js';
 import { renderZukan, lockedDetail } from './collection-ui.js';
 import { renderTrophies } from './trophy-ui.js';
@@ -26,6 +26,8 @@ import { titleFor, nextTitle, MASTER_TITLE_ID } from './challenge-titles.js';
 import { renderTaSelect, renderTaIntro, renderTaResult, renderTaRecords } from './challenge-ui.js';
 import { TransferDialog } from './transfer-ui.js';
 import { eraseRecords } from './transfer-code.js';
+import { trophyEnding, taEnding } from './ending.js';
+import { EndingPlayer } from './ending-ui.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 
@@ -695,8 +697,10 @@ $('#ta-howto').addEventListener('click', (e) => { if (e.target === e.currentTarg
 $('#btn-ta-records').addEventListener('click', () => {
   sound.play('tap');
   renderTaRecords($('#ta-records'), state.taStore);
+  $('#btn-ending-ta').hidden = !state.taStore.isComplete(); // 👑：エンディングを見返す
   show('ta-records');
 });
+$('#btn-ending-ta').addEventListener('click', () => { sound.unlockAudio(); playTaEnding(); });
 $('#btn-ta-start').addEventListener('click', () => { sound.unlockAudio(); sound.play('tap'); startTimeAttack(state.taLevel); });
 $('#btn-ta-retry').addEventListener('click', () => { sound.unlockAudio(); sound.play('tap'); startTimeAttack(state.taLevel); });
 $('#btn-ta-to-select').addEventListener('click', () => { sound.play('tap'); openTaSelect(); });
@@ -858,8 +862,11 @@ function showTaResults() {
   renderTaResult($('#ta-result'), { level: ta.level, clears: ta.clears, result, reason: ta.endReason });
   exitTa();
   show('ta-result');
+  const focusRetry = () => $('#btn-ta-retry').focus({ preventScroll: true });
+  // 5 難易度すべてで最高称号：結果画面の上にエンディング（音楽と重ならないよう、ファンファーレは鳴らさない）
+  if (result.newlyComplete) { playTaEnding(focusRetry); return; }
   sound.play(result.newRecord || result.titleUp ? 'fanfareBig' : 'fanfare'); // 結果はいつもファンファーレ。記録更新・称号アップはさらにキラキラ
-  $('#btn-ta-retry').focus({ preventScroll: true });
+  focusRetry();
 }
 
 /** タイムアタックの表示・時計を片付けて、通常モードに戻す */
@@ -954,9 +961,21 @@ function showRewards(rewards, done) {
   markRewardsSeen(state.collection, rewards); // 見せた時点で「見た」ことにする（とばしても報酬は失われない）
   rewardOverlay.show(rewards, {
     onUseFruit: (id) => selectFruit(id),
-    onDone: () => { refreshFruit(); done && done(); },
+    onDone: () => {
+      refreshFruit();
+      // 全トロフィーをコンプリートしたとき：報酬の演出のあとにエンディング
+      if (rewards.complete) playTrophyEnding(done);
+      else if (done) done();
+    },
   });
 }
+
+// ---- エンディング（全トロフィー／タイムアタック全最高称号）。一度達成したら 👑 から見返せる ----
+const endingPlayer = new EndingPlayer($('#ending'));
+/** その難易度で、ヒントなしでクリアしたステージ数 */
+const hintFreeOf = (level) => state.library.list(level).filter((p) => state.store.isHintFreeCleared(p.id)).length;
+function playTrophyEnding(done) { endingPlayer.play(trophyEnding({ totalOf, hintFreeOf }), done); }
+function playTaEnding(done) { endingPlayer.play(taEnding(state.taStore.bestByLevel()), done); }
 
 // ---- フルーツずかん ----
 let zukanStatuses = [];
@@ -1008,8 +1027,10 @@ $('#zukan-grid').addEventListener('click', (e) => {
 function openTrophy() {
   renderTrophies({ count: $('#trophy-count'), gauge: $('#trophy-gauge'), list: $('#trophy-list'), complete: $('#trophy-complete') },
     allTrophyStatuses(currentStats(), totalOf));
+  $('#btn-ending-trophy').hidden = !isAllComplete(currentStats(), totalOf); // 👑：エンディングを見返す
   show('trophy');
 }
+$('#btn-ending-trophy').addEventListener('click', () => { sound.unlockAudio(); playTrophyEnding(); });
 
 /** 起動時：選んだフルーツの復元、はじめての起動の処理、まだ見ていない報酬の演出 */
 function initCollection() {
